@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Header, AutoUpdateStatus } from "@/components/header/Header";
 import { WorkspaceLayout } from "@/components/workspace/WorkspaceLayout";
-import type { TranscriptSegment, ScribbleEntry } from "@/types/notesmith";
-import { loadWorkspaceState, saveScribbles } from "@/lib/storage";
+import type { TranscriptSegment, ScribbleEntry, LivingDocumentState } from "@/types/notesmith";
+import {
+  loadWorkspaceState,
+  saveScribbles,
+  loadLivingDocument,
+  saveLivingDocument,
+} from "@/lib/storage";
+import { generateLivingDocument } from "@/app/actions/living-document";
 
 export default function Home() {
   const [answerQuestions, setAnswerQuestions] = useState(false);
@@ -17,21 +23,80 @@ export default function Home() {
   const [transcriptUnavailable, setTranscriptUnavailable] = useState(false);
   const [scribbles, setScribbles] = useState<ScribbleEntry[]>([]);
 
-  // Load persisted scribbles on mount
+  // Living document state — persisted to localStorage
+  const [livingDocument, setLivingDocument] = useState<LivingDocumentState>({
+    content: "",
+    lastUpdated: null,
+  });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
+  // Accumulates streamed chunks for live display during generation
+  const [liveDocContent, setLiveDocContent] = useState("");
+  // Reference to the content to restore on error
+  const priorDocContentRef = useRef("");
+
+  // Load persisted state on mount
   useEffect(() => {
     const saved = loadWorkspaceState();
     if (saved.scribbles && saved.scribbles.length > 0) {
       setScribbles(saved.scribbles);
     }
+    if (saved.settings) {
+      setAnswerQuestions(saved.settings.answerQuestions);
+    }
+
+    // Restore living document from cache (keyed by videoId + scribbles checksum)
+    const cached = loadLivingDocument(saved.videoId, saved.scribbles);
+    if (cached && cached.content) {
+      setLivingDocument(cached);
+      priorDocContentRef.current = cached.content;
+    }
   }, []);
 
-  const handleUpdateNow = useCallback(() => {
-    setAutoUpdateStatus("updating");
-    setTimeout(() => {
-      setAutoUpdateStatus(autoUpdateStatus === "on" ? "on" : "manual");
+  const handleUpdateNow = useCallback(async () => {
+    if (isGenerating) return;
+    if (!videoId) return;
+
+    setIsGenerating(true);
+    setGenerationError(null);
+    // Remember prior content so we can restore on error
+    priorDocContentRef.current = livingDocument.content;
+    setLiveDocContent("");
+
+    try {
+      const stream = await generateLivingDocument(
+        transcriptSegments,
+        scribbles,
+        answerQuestions,
+      );
+
+      const reader = stream.getReader();
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = value ?? "";
+        fullText += chunk;
+        setLiveDocContent(fullText);
+      }
+
+      // Stream complete — persist and switch to stable content
+      const finalDoc: LivingDocumentState = { content: fullText, lastUpdated: Date.now() };
+      setLiveDocContent("");
+      setLivingDocument(finalDoc);
+      saveLivingDocument(videoId, scribbles, finalDoc);
       setLastUpdated(Date.now());
-    }, 1500);
-  }, [autoUpdateStatus]);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Generation failed. Please try again.";
+      setGenerationError(message);
+      // Prior content preserved via priorDocContentRef; UI shows error banner
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [isGenerating, videoId, transcriptSegments, scribbles, answerQuestions, livingDocument.content]);
 
   const handleAutoUpdateToggle = useCallback(() => {
     setAutoUpdateStatus((prev) => (prev === "on" ? "manual" : "on"));
@@ -47,50 +112,19 @@ export default function Home() {
     saveScribbles(newScribbles);
   }, []);
 
-  useEffect(() => {
-    if (!videoId) {
-      setTranscriptSegments([]);
-      setTranscriptUnavailable(false);
-      setIsTranscriptLoading(false);
-      return;
-    }
+  // When not generating, the display uses livingDocument.content.
+  // During generation, liveDocContent takes over.
+  const displayContent = isGenerating ? liveDocContent : livingDocument.content;
 
-    let cancelled = false;
-    setIsTranscriptLoading(true);
-    setTranscriptUnavailable(false);
-
-    fetch(`/api/transcript?videoId=${encodeURIComponent(videoId)}`)
-      .then(async (response) => {
-        const data = await response.json();
-        if (cancelled) return;
-
-        if (!response.ok) {
-          if (response.status === 422) {
-            setTranscriptUnavailable(true);
-            setTranscriptSegments([]);
-            return;
-          }
-          throw new Error(data?.error || "Failed to load transcript");
-        }
-
-        setTranscriptSegments(Array.isArray(data.segments) ? data.segments : []);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("[transcript fetch]", error);
-        setTranscriptUnavailable(true);
-        setTranscriptSegments([]);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsTranscriptLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [videoId]);
+  const handlePersistLivingDocument = useCallback(
+    (doc: LivingDocumentState) => {
+      setLivingDocument(doc);
+      if (videoId) {
+        saveLivingDocument(videoId, scribbles, doc);
+      }
+    },
+    [videoId, scribbles],
+  );
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col">
@@ -112,6 +146,11 @@ export default function Home() {
         transcriptUnavailable={transcriptUnavailable}
         scribbles={scribbles}
         onScribblesChange={handleScribblesChange}
+        livingDocumentContent={displayContent}
+        livingDocumentLastUpdated={livingDocument.lastUpdated}
+        isGenerating={isGenerating}
+        generationError={generationError}
+        onPersistLivingDocument={handlePersistLivingDocument}
       />
     </main>
   );

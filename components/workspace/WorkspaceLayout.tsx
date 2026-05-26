@@ -6,7 +6,8 @@ import { VideoUrlForm, YouTubePlayer } from "@/components/player";
 import { TranscriptPanel } from "@/components/transcript/TranscriptPanel";
 import { TranscriptUnavailable } from "@/components/transcript/TranscriptUnavailable";
 import { ScribblesPanel } from "@/components/scribbles/ScribblesPanel";
-import type { TranscriptSegment, ScribbleEntry } from "@/types/notesmith";
+import { LivingDocumentPanel } from "@/components/living-document/LivingDocumentPanel";
+import type { TranscriptSegment, ScribbleEntry, LivingDocumentState } from "@/types/notesmith";
 
 interface WorkspaceLayoutProps {
   videoId: string | null;
@@ -18,6 +19,11 @@ interface WorkspaceLayoutProps {
   transcriptUnavailable: boolean;
   scribbles: ScribbleEntry[];
   onScribblesChange: (scribbles: ScribbleEntry[]) => void;
+  livingDocumentContent: string;
+  livingDocumentLastUpdated: number | null;
+  isGenerating?: boolean;
+  generationError?: string | null;
+  onPersistLivingDocument?: (doc: LivingDocumentState) => void;
 }
 
 export function WorkspaceLayout({
@@ -30,6 +36,11 @@ export function WorkspaceLayout({
   transcriptUnavailable,
   scribbles,
   onScribblesChange,
+  livingDocumentContent,
+  livingDocumentLastUpdated,
+  isGenerating = false,
+  generationError = null,
+  onPersistLivingDocument,
 }: WorkspaceLayoutProps) {
   const [topRowSizes, setTopRowSizes] = useState<number[]>([50, 50]);
   const [bottomRowSizes, setBottomRowSizes] = useState<number[]>([50, 50]);
@@ -114,7 +125,12 @@ export function WorkspaceLayout({
                   <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
                     Living Document
                   </h2>
-                  <PlaceholderPanel name="Living Document" />
+                  <LivingDocumentPanel
+                    content={livingDocumentContent}
+                    isGenerating={isGenerating}
+                    error={generationError}
+                    onPersist={onPersistLivingDocument}
+                  />
                 </div>
               </div>
             </Panel>
