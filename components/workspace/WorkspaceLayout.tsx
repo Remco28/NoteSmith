@@ -17,6 +17,7 @@ interface WorkspaceLayoutProps {
   transcriptSegments: TranscriptSegment[];
   isTranscriptLoading: boolean;
   transcriptUnavailable: boolean;
+  transcriptError?: string | null;
   scribbles: ScribbleEntry[];
   onScribblesChange: (scribbles: ScribbleEntry[]) => void;
   livingDocumentContent: string;
@@ -34,6 +35,7 @@ export function WorkspaceLayout({
   transcriptSegments,
   isTranscriptLoading,
   transcriptUnavailable,
+  transcriptError = null,
   scribbles,
   onScribblesChange,
   livingDocumentContent,
@@ -56,12 +58,8 @@ export function WorkspaceLayout({
                   <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
                     YouTube Player
                   </h2>
-                  {!videoId ? (
-                    <VideoUrlForm
-                      currentVideoId={null}
-                      onVideoIdChange={onVideoIdChange}
-                    />
-                  ) : (
+                  <VideoUrlForm currentVideoId={videoId} onVideoIdChange={onVideoIdChange} />
+                  {videoId && (
                     <YouTubePlayer
                       videoId={videoId}
                       onTimeUpdate={onPlaybackTimeChange}
@@ -88,6 +86,7 @@ export function WorkspaceLayout({
                       segments={transcriptSegments}
                       currentTime={currentPlaybackTime}
                       isLoading={isTranscriptLoading}
+                      error={transcriptError}
                     />
                   )}
                 </div>

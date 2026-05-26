@@ -8,9 +8,15 @@ interface TranscriptPanelProps {
   segments: TranscriptSegment[];
   currentTime: number;
   isLoading?: boolean;
+  error?: string | null;
 }
 
-export function TranscriptPanel({ segments, currentTime, isLoading }: TranscriptPanelProps) {
+export function TranscriptPanel({
+  segments,
+  currentTime,
+  isLoading,
+  error = null,
+}: TranscriptPanelProps) {
   const activeRef = useRef<HTMLDivElement>(null);
 
   // Find the active segment
@@ -32,6 +38,14 @@ export function TranscriptPanel({ segments, currentTime, isLoading }: Transcript
     return (
       <div className="flex items-center justify-center h-32 text-gray-400">
         <span className="text-sm">Loading transcript...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <span className="font-medium">Transcript load failed:</span> {error}
       </div>
     );
   }

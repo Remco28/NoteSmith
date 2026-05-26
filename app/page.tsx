@@ -15,6 +15,9 @@ import {
   loadLivingDocument,
   saveLivingDocument,
   saveAutoUpdateEnabled,
+  saveSettings,
+  saveTranscriptCache,
+  saveVideoId,
 } from "@/lib/storage";
 import { generateLivingDocument } from "@/app/actions/living-document";
 
@@ -29,6 +32,7 @@ export default function Home() {
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
   const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
   const [transcriptUnavailable, setTranscriptUnavailable] = useState(false);
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [scribbles, setScribbles] = useState<ScribbleEntry[]>([]);
 
   // Living document state — persisted to localStorage
@@ -52,6 +56,12 @@ export default function Home() {
   // Load persisted state on mount
   useEffect(() => {
     const saved = loadWorkspaceState();
+    if (saved.videoId) {
+      setVideoId(saved.videoId);
+    }
+    if (saved.transcriptCache && saved.transcriptCache.length > 0) {
+      setTranscriptSegments(saved.transcriptCache);
+    }
     if (saved.scribbles && saved.scribbles.length > 0) {
       setScribbles(saved.scribbles);
     }
@@ -66,8 +76,77 @@ export default function Home() {
     if (cached && cached.content) {
       setLivingDocument(cached);
       priorDocContentRef.current = cached.content;
+      setLastUpdated(cached.lastUpdated);
     }
   }, []);
+
+  useEffect(() => {
+    saveSettings({
+      answerQuestions,
+      autoUpdateEnabled: autoUpdateStatus !== "manual",
+    });
+  }, [answerQuestions, autoUpdateStatus]);
+
+  useEffect(() => {
+    if (!videoId) {
+      setTranscriptSegments([]);
+      setTranscriptUnavailable(false);
+      setTranscriptError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadTranscript = async () => {
+      setIsTranscriptLoading(true);
+      setTranscriptUnavailable(false);
+      setTranscriptError(null);
+
+      try {
+        const response = await fetch(`/api/transcript?videoId=${encodeURIComponent(videoId)}`, {
+          signal: controller.signal,
+        });
+        const payload = (await response.json()) as {
+          segments?: TranscriptSegment[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          if (response.status === 422) {
+            setTranscriptSegments([]);
+            setTranscriptUnavailable(true);
+            saveTranscriptCache(null);
+            return;
+          }
+
+          throw new Error(payload.error ?? "Transcript fetch failed.");
+        }
+
+        const segments = payload.segments ?? [];
+        setTranscriptSegments(segments);
+        setTranscriptUnavailable(false);
+        saveTranscriptCache(segments);
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setTranscriptSegments([]);
+        setTranscriptUnavailable(false);
+        setTranscriptError(
+          err instanceof Error ? err.message : "Transcript fetch failed. Please try another video.",
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsTranscriptLoading(false);
+        }
+      }
+    };
+
+    loadTranscript();
+
+    return () => controller.abort();
+  }, [videoId]);
 
   // Core update function — shared by manual and idle-triggered paths
   const runUpdate = useCallback(async () => {
@@ -132,9 +211,33 @@ export default function Home() {
   }, []);
 
   const handleVideoIdChange = useCallback((newVideoId: string) => {
-    setVideoId(newVideoId || null);
+    const normalizedVideoId = newVideoId || null;
+    const isVideoSwitch = normalizedVideoId !== videoId;
+
+    setVideoId(normalizedVideoId);
+    saveVideoId(normalizedVideoId);
     setCurrentPlaybackTime(0);
-  }, []);
+    setTranscriptSegments([]);
+    setTranscriptUnavailable(false);
+    setTranscriptError(null);
+    setGenerationError(null);
+
+    if (!isVideoSwitch) {
+      return;
+    }
+
+    setScribbles([]);
+    saveScribbles([]);
+    saveTranscriptCache(null);
+
+    const cachedDoc = loadLivingDocument(normalizedVideoId, []);
+    const nextDoc = cachedDoc ?? { content: "", lastUpdated: null };
+
+    setLivingDocument(nextDoc);
+    setLiveDocContent("");
+    priorDocContentRef.current = nextDoc.content;
+    setLastUpdated(nextDoc.lastUpdated);
+  }, [videoId]);
 
   const handleScribblesChange = useCallback((newScribbles: ScribbleEntry[]) => {
     setScribbles(newScribbles);
@@ -212,6 +315,7 @@ export default function Home() {
         transcriptSegments={transcriptSegments}
         isTranscriptLoading={isTranscriptLoading}
         transcriptUnavailable={transcriptUnavailable}
+        transcriptError={transcriptError}
         scribbles={scribbles}
         onScribblesChange={handleScribblesChange}
         livingDocumentContent={displayContent}
