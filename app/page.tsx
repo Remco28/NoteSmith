@@ -8,6 +8,7 @@ export default function Home() {
   const [answerQuestions, setAnswerQuestions] = useState(false);
   const [autoUpdateStatus, setAutoUpdateStatus] = useState<AutoUpdateStatus>("manual");
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [videoId, setVideoId] = useState<string | null>(null);
 
   const handleUpdateNow = useCallback(() => {
     setAutoUpdateStatus("updating");
@@ -22,6 +23,10 @@ export default function Home() {
     setAutoUpdateStatus((prev) => (prev === "on" ? "manual" : "on"));
   }, []);
 
+  const handleVideoIdChange = useCallback((newVideoId: string) => {
+    setVideoId(newVideoId || null);
+  }, []);
+
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col">
       <Header
@@ -32,7 +37,10 @@ export default function Home() {
         onUpdateNow={handleUpdateNow}
         onAutoUpdateToggle={handleAutoUpdateToggle}
       />
-      <WorkspaceLayout />
+      <WorkspaceLayout
+        videoId={videoId}
+        onVideoIdChange={handleVideoIdChange}
+      />
     </main>
   );
 }

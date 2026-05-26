@@ -2,12 +2,21 @@
 
 import { useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { VideoUrlForm, YouTubePlayer } from "@/components/player";
 
 interface WorkspaceLayoutProps {
-  children?: React.ReactNode;
+  videoId: string | null;
+  onVideoIdChange: (videoId: string) => void;
+  currentPlaybackTime?: number;
+  onPause?: () => void;
 }
 
-export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
+export function WorkspaceLayout({
+  videoId,
+  onVideoIdChange,
+  currentPlaybackTime = 0,
+  onPause,
+}: WorkspaceLayoutProps) {
   const [topRowSizes, setTopRowSizes] = useState<number[]>([50, 50]);
   const [bottomRowSizes, setBottomRowSizes] = useState<number[]>([50, 50]);
 
@@ -32,7 +41,19 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
                   <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
                     YouTube Player
                   </h2>
-                  <PlaceholderPanel name="YouTube Player" />
+                  {!videoId ? (
+                    <VideoUrlForm
+                      currentVideoId={null}
+                      onVideoIdChange={onVideoIdChange}
+                    />
+                  ) : (
+                    <YouTubePlayer
+                      videoId={videoId}
+                      onTimeUpdate={(time) => {
+                        // Time update callback - could be used for transcript sync
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             </Panel>
