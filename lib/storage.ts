@@ -150,6 +150,17 @@ export function saveSettings(settings: WorkspaceSettings): void {
   });
 }
 
+/**
+ * Persist autoUpdateEnabled setting immediately (not debounced).
+ * Toggle feedback needs to be instant.
+ */
+export function saveAutoUpdateEnabled(enabled: boolean): void {
+  if (!isBrowser()) return;
+  const state = loadRaw();
+  state.settings = { ...state.settings, autoUpdateEnabled: enabled };
+  saveRaw(state);
+}
+
 /** ---------------------------------------------------------------------------
  * Living Document cache
  * Keyed by videoId + scribbles checksum so it survives scribble edits

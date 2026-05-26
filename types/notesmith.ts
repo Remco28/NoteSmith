@@ -3,6 +3,11 @@
  */
 
 /**
+ * Auto-update mode status.
+ */
+export type AutoUpdateStatus = "on" | "manual" | "updating";
+
+/**
  * A single segment from a YouTube transcript.
  * Times are in seconds.
  */

@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
-
-export type AutoUpdateStatus = "on" | "manual" | "updating";
+import type { AutoUpdateStatus } from "@/types/notesmith";
 
 interface HeaderProps {
   answerQuestions: boolean;
@@ -21,14 +19,7 @@ export function Header({
   onUpdateNow,
   onAutoUpdateToggle,
 }: HeaderProps) {
-  const [isUpdating, setIsUpdating] = useState(false);
-
-  const handleUpdateNow = () => {
-    setIsUpdating(true);
-    onUpdateNow();
-    // Simulate update completion after a delay (placeholder behavior)
-    setTimeout(() => setIsUpdating(false), 1000);
-  };
+  const isUpdating = autoUpdateStatus === "updating";
 
   const formatLastUpdated = (timestamp: number | null): string => {
     if (!timestamp) return "never";
@@ -68,18 +59,19 @@ export function Header({
       {/* Auto-update toggle */}
       <button
         onClick={onAutoUpdateToggle}
-        className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900"
+        disabled={isUpdating}
+        className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span>{renderAutoUpdateStatus()}</span>
       </button>
 
       {/* Update Now button */}
       <button
-        onClick={handleUpdateNow}
-        disabled={autoUpdateStatus === "updating" || isUpdating}
+        onClick={onUpdateNow}
+        disabled={isUpdating}
         className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {autoUpdateStatus === "updating" || isUpdating ? "Updating…" : "Update Now"}
+        {isUpdating ? "Updating…" : "Update Now"}
       </button>
 
       {/* Export actions placeholder */}

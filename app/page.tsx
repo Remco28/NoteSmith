@@ -1,16 +1,24 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Header, AutoUpdateStatus } from "@/components/header/Header";
+import { Header } from "@/components/header/Header";
 import { WorkspaceLayout } from "@/components/workspace/WorkspaceLayout";
-import type { TranscriptSegment, ScribbleEntry, LivingDocumentState } from "@/types/notesmith";
+import type {
+  TranscriptSegment,
+  ScribbleEntry,
+  LivingDocumentState,
+  AutoUpdateStatus,
+} from "@/types/notesmith";
 import {
   loadWorkspaceState,
   saveScribbles,
   loadLivingDocument,
   saveLivingDocument,
+  saveAutoUpdateEnabled,
 } from "@/lib/storage";
 import { generateLivingDocument } from "@/app/actions/living-document";
+
+const IDLE_TIMEOUT_MS = 60_000; // 60 seconds
 
 export default function Home() {
   const [answerQuestions, setAnswerQuestions] = useState(false);
@@ -36,6 +44,11 @@ export default function Home() {
   // Reference to the content to restore on error
   const priorDocContentRef = useRef("");
 
+  // Idle timer ref — tracks the last scribble change timestamp
+  const lastScribbleChangeMsRef = useRef<number>(0);
+  // Interval handle ref — stored so we can clean up without deps
+  const idleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Load persisted state on mount
   useEffect(() => {
     const saved = loadWorkspaceState();
@@ -44,6 +57,8 @@ export default function Home() {
     }
     if (saved.settings) {
       setAnswerQuestions(saved.settings.answerQuestions);
+      // Initialize auto-update mode from persisted setting
+      setAutoUpdateStatus(saved.settings.autoUpdateEnabled ? "on" : "manual");
     }
 
     // Restore living document from cache (keyed by videoId + scribbles checksum)
@@ -54,12 +69,15 @@ export default function Home() {
     }
   }, []);
 
-  const handleUpdateNow = useCallback(async () => {
+  // Core update function — shared by manual and idle-triggered paths
+  const runUpdate = useCallback(async () => {
     if (isGenerating) return;
     if (!videoId) return;
 
     setIsGenerating(true);
     setGenerationError(null);
+    setAutoUpdateStatus("updating");
+
     // Remember prior content so we can restore on error
     priorDocContentRef.current = livingDocument.content;
     setLiveDocContent("");
@@ -83,23 +101,34 @@ export default function Home() {
       }
 
       // Stream complete — persist and switch to stable content
-      const finalDoc: LivingDocumentState = { content: fullText, lastUpdated: Date.now() };
+      const now = Date.now();
+      const finalDoc: LivingDocumentState = { content: fullText, lastUpdated: now };
       setLiveDocContent("");
       setLivingDocument(finalDoc);
       saveLivingDocument(videoId, scribbles, finalDoc);
-      setLastUpdated(Date.now());
+      setLastUpdated(now);
+      setAutoUpdateStatus("on");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Generation failed. Please try again.";
       setGenerationError(message);
-      // Prior content preserved via priorDocContentRef; UI shows error banner
+      setAutoUpdateStatus("on");
     } finally {
       setIsGenerating(false);
     }
   }, [isGenerating, videoId, transcriptSegments, scribbles, answerQuestions, livingDocument.content]);
 
+  const handleUpdateNow = useCallback(() => {
+    if (isGenerating) return;
+    runUpdate();
+  }, [isGenerating, runUpdate]);
+
   const handleAutoUpdateToggle = useCallback(() => {
-    setAutoUpdateStatus((prev) => (prev === "on" ? "manual" : "on"));
+    setAutoUpdateStatus((prev) => {
+      const next = prev === "on" ? "manual" : "on";
+      saveAutoUpdateEnabled(next === "on");
+      return next;
+    });
   }, []);
 
   const handleVideoIdChange = useCallback((newVideoId: string) => {
@@ -110,6 +139,8 @@ export default function Home() {
   const handleScribblesChange = useCallback((newScribbles: ScribbleEntry[]) => {
     setScribbles(newScribbles);
     saveScribbles(newScribbles);
+    // Reset idle timer on any scribble activity
+    lastScribbleChangeMsRef.current = Date.now();
   }, []);
 
   // When not generating, the display uses livingDocument.content.
@@ -125,6 +156,41 @@ export default function Home() {
     },
     [videoId, scribbles],
   );
+
+  // Idle auto-update effect
+  useEffect(() => {
+    // Only run when auto-update is enabled and not currently generating
+    if (autoUpdateStatus !== "on") {
+      // Clear any existing interval when auto-update is disabled
+      if (idleIntervalRef.current !== null) {
+        clearInterval(idleIntervalRef.current);
+        idleIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Initialize the last activity timestamp if not set
+    if (lastScribbleChangeMsRef.current === 0) {
+      lastScribbleChangeMsRef.current = Date.now();
+    }
+
+    // Set up polling interval to check for idle expiry
+    const intervalId = setInterval(() => {
+      const elapsed = Date.now() - lastScribbleChangeMsRef.current;
+      if (elapsed >= IDLE_TIMEOUT_MS) {
+        // Reset the timer first to prevent double-fire
+        lastScribbleChangeMsRef.current = Date.now();
+        runUpdate();
+      }
+    }, 1_000);
+
+    idleIntervalRef.current = intervalId;
+
+    return () => {
+      clearInterval(intervalId);
+      idleIntervalRef.current = null;
+    };
+  }, [autoUpdateStatus, runUpdate]);
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col">
