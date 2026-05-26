@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { Header, AutoUpdateStatus } from "@/components/header/Header";
 import { WorkspaceLayout } from "@/components/workspace/WorkspaceLayout";
-import type { TranscriptSegment } from "@/types/notesmith";
+import type { TranscriptSegment, ScribbleEntry } from "@/types/notesmith";
+import { loadWorkspaceState, saveScribbles } from "@/lib/storage";
 
 export default function Home() {
   const [answerQuestions, setAnswerQuestions] = useState(false);
@@ -14,6 +15,15 @@ export default function Home() {
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
   const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
   const [transcriptUnavailable, setTranscriptUnavailable] = useState(false);
+  const [scribbles, setScribbles] = useState<ScribbleEntry[]>([]);
+
+  // Load persisted scribbles on mount
+  useEffect(() => {
+    const saved = loadWorkspaceState();
+    if (saved.scribbles && saved.scribbles.length > 0) {
+      setScribbles(saved.scribbles);
+    }
+  }, []);
 
   const handleUpdateNow = useCallback(() => {
     setAutoUpdateStatus("updating");
@@ -30,6 +40,11 @@ export default function Home() {
   const handleVideoIdChange = useCallback((newVideoId: string) => {
     setVideoId(newVideoId || null);
     setCurrentPlaybackTime(0);
+  }, []);
+
+  const handleScribblesChange = useCallback((newScribbles: ScribbleEntry[]) => {
+    setScribbles(newScribbles);
+    saveScribbles(newScribbles);
   }, []);
 
   useEffect(() => {
@@ -95,6 +110,8 @@ export default function Home() {
         transcriptSegments={transcriptSegments}
         isTranscriptLoading={isTranscriptLoading}
         transcriptUnavailable={transcriptUnavailable}
+        scribbles={scribbles}
+        onScribblesChange={handleScribblesChange}
       />
     </main>
   );

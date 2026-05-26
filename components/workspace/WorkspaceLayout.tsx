@@ -5,7 +5,8 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { VideoUrlForm, YouTubePlayer } from "@/components/player";
 import { TranscriptPanel } from "@/components/transcript/TranscriptPanel";
 import { TranscriptUnavailable } from "@/components/transcript/TranscriptUnavailable";
-import type { TranscriptSegment } from "@/types/notesmith";
+import { ScribblesPanel } from "@/components/scribbles/ScribblesPanel";
+import type { TranscriptSegment, ScribbleEntry } from "@/types/notesmith";
 
 interface WorkspaceLayoutProps {
   videoId: string | null;
@@ -15,6 +16,8 @@ interface WorkspaceLayoutProps {
   transcriptSegments: TranscriptSegment[];
   isTranscriptLoading: boolean;
   transcriptUnavailable: boolean;
+  scribbles: ScribbleEntry[];
+  onScribblesChange: (scribbles: ScribbleEntry[]) => void;
 }
 
 export function WorkspaceLayout({
@@ -25,6 +28,8 @@ export function WorkspaceLayout({
   transcriptSegments,
   isTranscriptLoading,
   transcriptUnavailable,
+  scribbles,
+  onScribblesChange,
 }: WorkspaceLayoutProps) {
   const [topRowSizes, setTopRowSizes] = useState<number[]>([50, 50]);
   const [bottomRowSizes, setBottomRowSizes] = useState<number[]>([50, 50]);
@@ -90,7 +95,12 @@ export function WorkspaceLayout({
                   <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
                     Raw Scribbles
                   </h2>
-                  <PlaceholderPanel name="Raw Scribbles" />
+                  <ScribblesPanel
+                    scribbles={scribbles}
+                    onScribblesChange={onScribblesChange}
+                    currentPlaybackTime={currentPlaybackTime}
+                    disabled={!videoId}
+                  />
                 </div>
               </div>
             </Panel>
