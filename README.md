@@ -2,7 +2,7 @@
 
 > Formerly **Scribble → Structure**.
 
-|NoteSmith is a **YouTube-only, transcript-assisted thinking tool**.
+NoteSmith is a **YouTube-only, transcript-assisted thinking tool**.
 It helps turn messy live thoughts into a cleaner evolving document while watching a video.
 
 This is **not primarily a note-taking app**. The core idea is to keep two layers separate:
@@ -21,16 +21,15 @@ Canonical planning doc:
 ## Run instructions
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/your-org/notesmith.git
-cd notesmith
+# 1. Use the existing repo
+cd /home/frank/Projects/NoteSmith
 
 # 2. Install dependencies
 npm install
 
 # 3. Set up environment variables
 cp .env.example .env.local
-# Then edit .env.local and fill in your keys:
+# Then edit .env.local and fill in your key:
 #   OPENAI_API_KEY=sk-...
 #   OPENAI_MODEL=gpt-4o  (optional, defaults to gpt-4o)
 
@@ -38,7 +37,7 @@ cp .env.example .env.local
 npm run dev
 
 # 5. Open in browser
-open http://localhost:3000
+# http://localhost:3000
 ```
 
 ### Required environment variables
@@ -56,7 +55,7 @@ open http://localhost:3000
 ## Current v1 decisions
 
 ### Scope
-- YouTube only (captioned videos only — transcript retrieval via YouTube transcript API)
+- YouTube only (captioned videos only — transcript retrieval via an undocumented YouTube transcript adapter)
 - No audio upload
 - No podcast upload
 - No transcript fallback
@@ -126,7 +125,7 @@ These were present in older docs but have now been decided differently:
 - **Transcript source policy**
   - Older docs considered scraper/fallback approaches and one spec mentioned `youtube-transcript`.
   - Current decision: **YouTube-only and no transcript fallback in v1**.
-  - Implementation: **YouTube transcript API** (official captions endpoint).
+  - Implementation: **Node-side `youtube-transcript` adapter over YouTube's undocumented caption path**.
 
 - **Auto-update timing**
   - Older docs referenced **30s** inactivity.
@@ -148,7 +147,7 @@ These were present in older docs but have now been decided differently:
 ## Open questions resolved by v1
 
 - **Exact OpenAI model for v1** → `gpt-4o` (default), overridable via `OPENAI_MODEL`
-- **Exact transcript retrieval implementation** → YouTube transcript API
+- **Exact transcript retrieval implementation** → Node-side `youtube-transcript` adapter
 - **Exact UX for auto-update states** → `Auto-updates on · last: <time>`, `Manual only`, `Updating…`
 - **Exact UX/copy for the answer-questions toggle** → "Answer questions" checkbox with clear prompt impact
 - **Living Document local caching** → ✅ implemented, keyed by `videoId + scribbles checksum`
