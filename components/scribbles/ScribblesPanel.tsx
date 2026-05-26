@@ -3,11 +3,13 @@
 import { useCallback } from "react";
 import { ScribbleEntry } from "@/types/notesmith";
 import { ScribbleEntryCard } from "./ScribbleEntryCard";
+import { VoiceRecorder } from "./VoiceRecorder";
 
 interface ScribblesPanelProps {
   scribbles: ScribbleEntry[];
   onScribblesChange: (scribbles: ScribbleEntry[]) => void;
   currentPlaybackTime: number;
+  videoId: string;
   disabled?: boolean;
 }
 
@@ -19,18 +21,29 @@ export function ScribblesPanel({
   scribbles,
   onScribblesChange,
   currentPlaybackTime,
+  videoId,
   disabled = false,
 }: ScribblesPanelProps) {
-  const handleAddScribble = useCallback(() => {
-    if (disabled) return;
-    const newEntry: ScribbleEntry = {
-      id: generateId(),
-      text: "",
-      timestamp: currentPlaybackTime,
-      createdAt: Date.now(),
-    };
-    onScribblesChange([...scribbles, newEntry]);
-  }, [scribbles, onScribblesChange, currentPlaybackTime, disabled]);
+  const handleAddScribble = useCallback(
+    (text: string = "") => {
+      if (disabled) return;
+      const newEntry: ScribbleEntry = {
+        id: generateId(),
+        text,
+        timestamp: currentPlaybackTime,
+        createdAt: Date.now(),
+      };
+      onScribblesChange([...scribbles, newEntry]);
+    },
+    [scribbles, onScribblesChange, currentPlaybackTime, disabled]
+  );
+
+  const handleVoiceTranscript = useCallback(
+    (transcript: string) => {
+      handleAddScribble(transcript);
+    },
+    [handleAddScribble]
+  );
 
   const handleTextChange = useCallback(
     (id: string, text: string) => {
@@ -48,6 +61,10 @@ export function ScribblesPanel({
     [scribbles, onScribblesChange]
   );
 
+  const handleAddClick = useCallback(() => {
+    handleAddScribble("");
+  }, [handleAddScribble]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-3">
@@ -56,13 +73,20 @@ export function ScribblesPanel({
             ? "No scribbles yet"
             : `${scribbles.length} scribbl${scribbles.length === 1 ? "e" : "es"}`}
         </span>
-        <button
-          onClick={handleAddScribble}
-          disabled={disabled}
-          className="text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-md transition-colors"
-        >
-          + Add scribble
-        </button>
+        <div className="flex items-center gap-2">
+          <VoiceRecorder
+            videoId={videoId}
+            onTranscript={handleVoiceTranscript}
+            disabled={disabled}
+          />
+          <button
+            onClick={handleAddClick}
+            disabled={disabled}
+            className="text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-md transition-colors"
+          >
+            + Add scribble
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">

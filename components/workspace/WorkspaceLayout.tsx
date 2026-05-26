@@ -99,6 +99,7 @@ export function WorkspaceLayout({
                     scribbles={scribbles}
                     onScribblesChange={onScribblesChange}
                     currentPlaybackTime={currentPlaybackTime}
+                    videoId={videoId ?? ""}
                     disabled={!videoId}
                   />
                 </div>
