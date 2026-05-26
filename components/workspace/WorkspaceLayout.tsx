@@ -3,38 +3,37 @@
 import { useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { VideoUrlForm, YouTubePlayer } from "@/components/player";
+import { TranscriptPanel } from "@/components/transcript/TranscriptPanel";
+import { TranscriptUnavailable } from "@/components/transcript/TranscriptUnavailable";
+import type { TranscriptSegment } from "@/types/notesmith";
 
 interface WorkspaceLayoutProps {
   videoId: string | null;
   onVideoIdChange: (videoId: string) => void;
-  currentPlaybackTime?: number;
-  onPause?: () => void;
+  currentPlaybackTime: number;
+  onPlaybackTimeChange: (time: number) => void;
+  transcriptSegments: TranscriptSegment[];
+  isTranscriptLoading: boolean;
+  transcriptUnavailable: boolean;
 }
 
 export function WorkspaceLayout({
   videoId,
   onVideoIdChange,
-  currentPlaybackTime = 0,
-  onPause,
+  currentPlaybackTime,
+  onPlaybackTimeChange,
+  transcriptSegments,
+  isTranscriptLoading,
+  transcriptUnavailable,
 }: WorkspaceLayoutProps) {
   const [topRowSizes, setTopRowSizes] = useState<number[]>([50, 50]);
   const [bottomRowSizes, setBottomRowSizes] = useState<number[]>([50, 50]);
 
-  const handleTopRowResize = (sizes: number[]) => {
-    setTopRowSizes(sizes);
-  };
-
-  const handleBottomRowResize = (sizes: number[]) => {
-    setBottomRowSizes(sizes);
-  };
-
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col">
-      {/* Outer vertical PanelGroup for top/bottom row split */}
       <PanelGroup direction="vertical">
-        {/* Top row: YouTube Player | Transcript */}
         <Panel defaultSize={50} minSize={15}>
-          <PanelGroup direction="horizontal">
+          <PanelGroup direction="horizontal" onLayout={setTopRowSizes}>
             <Panel defaultSize={topRowSizes[0]} minSize={15}>
               <div className="h-full border-r border-gray-200 bg-white overflow-auto">
                 <div className="p-4">
@@ -49,9 +48,7 @@ export function WorkspaceLayout({
                   ) : (
                     <YouTubePlayer
                       videoId={videoId}
-                      onTimeUpdate={(time) => {
-                        // Time update callback - could be used for transcript sync
-                      }}
+                      onTimeUpdate={onPlaybackTimeChange}
                     />
                   )}
                 </div>
@@ -66,7 +63,17 @@ export function WorkspaceLayout({
                   <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
                     Transcript
                   </h2>
-                  <PlaceholderPanel name="Transcript" />
+                  {!videoId ? (
+                    <PlaceholderPanel name="Transcript" />
+                  ) : transcriptUnavailable ? (
+                    <TranscriptUnavailable />
+                  ) : (
+                    <TranscriptPanel
+                      segments={transcriptSegments}
+                      currentTime={currentPlaybackTime}
+                      isLoading={isTranscriptLoading}
+                    />
+                  )}
                 </div>
               </div>
             </Panel>
@@ -75,9 +82,8 @@ export function WorkspaceLayout({
 
         <PanelResizeHandle className="h-1 bg-gray-200 hover:bg-blue-400 transition-colors cursor-row-resize" />
 
-        {/* Bottom row: Raw Scribbles | Living Document */}
         <Panel defaultSize={50} minSize={15}>
-          <PanelGroup direction="horizontal">
+          <PanelGroup direction="horizontal" onLayout={setBottomRowSizes}>
             <Panel defaultSize={bottomRowSizes[0]} minSize={15}>
               <div className="h-full border-r border-gray-200 bg-white overflow-auto">
                 <div className="p-4">
