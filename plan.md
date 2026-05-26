@@ -48,12 +48,14 @@ The key idea is to keep the messy layer and the structured layer separate:
 - Keep **animation in v1**
 - Voice and cheer should come from design quality, not motivational copy
 - If a transcript is unavailable, show a **clear user-facing message** instead of attempting a fallback
+- Add a user-facing toggle for whether the Living Document should **answer open questions** or preserve them as open notes
 
 ### Voice input
 - Include **voice input in v1**
 - When the user starts voice recording, **pause the YouTube video**
 - The user manually resumes playback
 - Do **not** auto-resume playback after recording ends
+- Voice input should **append as a new Raw Scribbles entry**
 
 ## Product positioning
 
@@ -201,6 +203,7 @@ Stored in localStorage:
 - raw scribbles
 - panel sizes
 - auto-update preference
+- answer-questions preference
 - current working session state as needed
 
 ### Derived state
@@ -230,6 +233,14 @@ Show a recoverable message and keep user text intact:
 - restore scribbles from localStorage
 - restore layout from localStorage
 - restore toggles/preferences from localStorage
+
+## Raw Scribbles behavior
+
+- Scribbles are **fully editable** after creation
+- Scribbles are **deletable**
+- Every scribble entry is **timestamped to current playback time**
+- Voice input creates a **new appended entry** rather than inserting inline at the cursor
+- The Living Document may reorganize material freely, but it must never rewrite or mutate Raw Scribbles
 
 ## Explicit non-goals for v1
 
@@ -296,7 +307,7 @@ These are smaller than before, but still open:
 1. Exact OpenAI model name for v1
 2. Exact transcript retrieval library/API integration details for YouTube
 3. Exact UX for auto-update toggle states and indicators
-4. Whether voice input appends directly into Raw Scribbles or inserts at cursor position
+4. Exact UX/copy for the answer-questions toggle
 5. Whether Living Document should be persisted locally too for recovery, or always treated as re-derivable
 
 ## Current recommendation on that last question
@@ -320,6 +331,9 @@ For v1, NoteSmith should be:
 - whole-document streaming rewrite
 - manual update + 60s idle auto-update
 - voice input pauses video
+- voice input appends as a new timestamped scribble
+- scribbles stay editable and deletable
+- answer-questions behavior is user-toggleable
 - no auth yet
 
 That is small enough to ship and strong enough to learn from.
