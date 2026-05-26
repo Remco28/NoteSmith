@@ -201,6 +201,8 @@ export default function Home() {
         lastUpdated={lastUpdated}
         onUpdateNow={handleUpdateNow}
         onAutoUpdateToggle={handleAutoUpdateToggle}
+        livingDocumentContent={livingDocument.content}
+        videoId={videoId}
       />
       <WorkspaceLayout
         videoId={videoId}

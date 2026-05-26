@@ -9,6 +9,10 @@ interface HeaderProps {
   lastUpdated: number | null;
   onUpdateNow: () => void;
   onAutoUpdateToggle: () => void;
+  /** Current living document content for export actions. */
+  livingDocumentContent: string;
+  /** Video ID used to name the exported file. */
+  videoId: string | null;
 }
 
 export function Header({
@@ -18,6 +22,8 @@ export function Header({
   lastUpdated,
   onUpdateNow,
   onAutoUpdateToggle,
+  livingDocumentContent,
+  videoId,
 }: HeaderProps) {
   const isUpdating = autoUpdateStatus === "updating";
 
@@ -39,6 +45,38 @@ export function Header({
         return "Manual only";
     }
   };
+
+  const handleDownloadMarkdown = () => {
+    if (!livingDocumentContent) return;
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = videoId ? `notesmith-${videoId}-${date}.md` : `notesmith-${date}.md`;
+    const blob = new Blob([livingDocumentContent], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyToClipboard = async () => {
+    if (!livingDocumentContent) return;
+    try {
+      await navigator.clipboard.writeText(livingDocumentContent);
+    } catch {
+      // Fallback for older browsers
+      const ta = document.createElement("textarea");
+      ta.value = livingDocumentContent;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+  };
+
+  const hasContent = !!livingDocumentContent;
 
   return (
     <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-4">
@@ -74,9 +112,24 @@ export function Header({
         {isUpdating ? "Updating…" : "Update Now"}
       </button>
 
-      {/* Export actions placeholder */}
+      {/* Export actions */}
       <div className="ml-auto flex items-center gap-2">
-        <span className="text-sm text-gray-500 italic">Export: coming soon</span>
+        <button
+          onClick={handleCopyToClipboard}
+          disabled={!hasContent}
+          title={hasContent ? "Copy living document to clipboard" : "No document to copy"}
+          className="px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Copy
+        </button>
+        <button
+          onClick={handleDownloadMarkdown}
+          disabled={!hasContent}
+          title={hasContent ? "Download living document as Markdown" : "No document to download"}
+          className="px-3 py-1.5 text-sm text-white bg-gray-700 hover:bg-gray-800 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Download .md
+        </button>
       </div>
     </header>
   );

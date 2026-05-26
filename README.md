@@ -2,7 +2,7 @@
 
 > Formerly **Scribble → Structure**.
 
-NoteSmith is a **YouTube-only, transcript-assisted thinking tool**.
+|NoteSmith is a **YouTube-only, transcript-assisted thinking tool**.
 It helps turn messy live thoughts into a cleaner evolving document while watching a video.
 
 This is **not primarily a note-taking app**. The core idea is to keep two layers separate:
@@ -12,16 +12,51 @@ This is **not primarily a note-taking app**. The core idea is to keep two layers
 
 ## Status
 
-Planning and source-material collection are complete.
-Implementation has **not** started yet.
+✅ **v1 implementation complete.** All planned features are built and working.
 
 Canonical planning doc:
-- [`plan.md`](./plan.md)
+- [`plan.md`](./plan.md) — source of truth
+- [`docs/plans/2026-05-26-notesmith-v1-implementation.md`](./docs/plans/2026-05-26-notesmith-v1-implementation.md) — implementation log
+
+## Run instructions
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/your-org/notesmith.git
+cd notesmith
+
+# 2. Install dependencies
+npm install
+
+# 3. Set up environment variables
+cp .env.example .env.local
+# Then edit .env.local and fill in your keys:
+#   OPENAI_API_KEY=sk-...
+#   OPENAI_MODEL=gpt-4o  (optional, defaults to gpt-4o)
+
+# 4. Start the dev server
+npm run dev
+
+# 5. Open in browser
+open http://localhost:3000
+```
+
+### Required environment variables
+
+| Variable | Description |
+|---|---|
+| `OPENAI_API_KEY` | Your OpenAI API key |
+
+### Optional environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENAI_MODEL` | `gpt-4o` | OpenAI model to use for Living Document generation |
 
 ## Current v1 decisions
 
 ### Scope
-- YouTube only
+- YouTube only (captioned videos only — transcript retrieval via YouTube transcript API)
 - No audio upload
 - No podcast upload
 - No transcript fallback
@@ -46,32 +81,22 @@ Canonical planning doc:
 - User manually resumes playback
 - Whole-document Living Document rewrites
 - Manual **Update Now** + idle auto-update
-- Add a user-facing toggle for whether the Living Document answers open questions or preserves them as open notes
-- Current default idle threshold: **60 seconds**
+- User-facing toggle for whether the Living Document answers open questions or preserves them as open notes
+- Idle threshold: **60 seconds**
 
 ### Persistence and hosting
 - Browser localStorage for local persistence
 - Autosave to localStorage enabled
-- Exports are the only durable output
+- Living Document is cached locally (keyed by video ID + scribbles checksum) and restored on refresh
+- Exports are the only durable output (Markdown download and clipboard copy)
 - No server-side storage in v1
-- The answer-questions preference should persist locally
 - Recommended hosting for v1: **Vercel**
-
-## Recommended implementation shape
-
-- **Next.js 15**
-- **App Router**
-- **TypeScript**
-- **Tiptap** for Raw Scribbles
-- **react-resizable-panels** for layout
-- **Web Speech API** for voice input
-- **Next.js Server Actions** for LLM calls
-- **OpenAI SDK** on the server side
 
 ## Repo contents
 
 ### Canonical
 - [`plan.md`](./plan.md) — current source of truth for v1
+- [`docs/plans/2026-05-26-notesmith-v1-implementation.md`](./docs/plans/2026-05-26-notesmith-v1-implementation.md) — implementation task breakdown
 
 ### Historical / reference
 - [`docs/original-project-notes.md`](./docs/original-project-notes.md) — original local project note copied into the repo
@@ -101,7 +126,7 @@ These were present in older docs but have now been decided differently:
 - **Transcript source policy**
   - Older docs considered scraper/fallback approaches and one spec mentioned `youtube-transcript`.
   - Current decision: **YouTube-only and no transcript fallback in v1**.
-  - Exact implementation path still needs final selection before coding.
+  - Implementation: **YouTube transcript API** (official captions endpoint).
 
 - **Auto-update timing**
   - Older docs referenced **30s** inactivity.
@@ -110,6 +135,7 @@ These were present in older docs but have now been decided differently:
 - **Persistence**
   - Older docs described a more ephemeral, tab-only experience.
   - Current decision: **localStorage autosave is in scope** for better recovery and continuity.
+  - Living Document caching with checksum-based invalidation added in v1.
 
 - **Media scope**
   - Older docs still mentioned podcasts / audio upload as possibilities.
@@ -119,17 +145,10 @@ These were present in older docs but have now been decided differently:
   - Older docs flagged this as unresolved.
   - Current decision: **not in v1**.
 
-## Open questions still worth resolving before implementation
+## Open questions resolved by v1
 
-- Exact OpenAI model for v1
-- Exact transcript retrieval implementation details for YouTube
-- Exact UX for auto-update states and indicators
-- Exact UX/copy for the answer-questions toggle
-- Whether the Living Document should also be cached locally for recovery
-
-## Next likely steps
-
-- Turn `plan.md` into an implementation task breakdown
-- Scaffold the Next.js app
-- Convert any high-value legacy docs into concise markdown summaries
-- Reconcile the mockup against the locked v1 scope
+- **Exact OpenAI model for v1** → `gpt-4o` (default), overridable via `OPENAI_MODEL`
+- **Exact transcript retrieval implementation** → YouTube transcript API
+- **Exact UX for auto-update states** → `Auto-updates on · last: <time>`, `Manual only`, `Updating…`
+- **Exact UX/copy for the answer-questions toggle** → "Answer questions" checkbox with clear prompt impact
+- **Living Document local caching** → ✅ implemented, keyed by `videoId + scribbles checksum`
