@@ -3,12 +3,15 @@
 > Formerly **Scribble → Structure**.
 
 NoteSmith is a **YouTube-only, transcript-assisted thinking tool**.
-It helps turn messy live thoughts into a cleaner evolving document while watching a video.
+It helps turn messy live thoughts into **shorter, clearer, more useful notes** while watching a video.
 
 This is **not primarily a note-taking app**. The core idea is to keep two layers separate:
 
 - **Raw Scribbles** → unfiltered thinking
 - **Living Document** → AI-shaped output
+
+The product should **err on the side of brevity**. The Living Document should not default to a long summary of the whole podcast just because a full transcript is available.
+The Living Document should also feel **visibly cleaner and more finished** than the raw scribbles — properly rendered markdown, scannable structure, and calmer presentation matter.
 
 ## Status
 
@@ -79,9 +82,24 @@ npm run dev
 - Starting voice recording pauses the video
 - User manually resumes playback
 - Whole-document Living Document rewrites
+- Living Document output should be **brief by default**
+- The model should treat each scribble as the main unit of intent
+- Scribbles may be:
+  - direct questions
+  - messy fragments
+  - names / topics
+  - reactions or judgments
+  - off-transcript tangents sparked by the discussion
+- The Living Document should usually do one of a few small useful moves:
+  - preserve or sharpen a question
+  - clean up a fragment into a clearer note
+  - preserve uncertainty instead of inventing confidence
+  - lightly connect the note to transcript context when helpful
+- Do **not** default to summarizing the whole transcript when a scribble is narrow
+- Questions should normally remain **questions or open notes**, not be automatically answered
 - Manual **Update Now** + idle auto-update
-- User-facing toggle for whether the Living Document answers open questions or preserves them as open notes
 - Idle threshold: **60 seconds**
+- After a video is loaded, the player controls should collapse into a **smaller post-load control bar** so the player gets more room
 
 ### Persistence and hosting
 - Browser localStorage for local persistence
@@ -149,5 +167,22 @@ These were present in older docs but have now been decided differently:
 - **Exact OpenAI model for v1** → `gpt-4o` (default), overridable via `OPENAI_MODEL`
 - **Exact transcript retrieval implementation** → Node-side `youtube-transcript` adapter
 - **Exact UX for auto-update states** → `Auto-updates on · last: <time>`, `Manual only`, `Updating…`
-- **Exact UX/copy for the answer-questions toggle** → "Answer questions" checkbox with clear prompt impact
 - **Living Document local caching** → ✅ implemented, keyed by `videoId + scribbles checksum`
+
+## Current product direction (post-first-working-build)
+
+The first working implementation proved an important behavior issue: when the app sends the whole transcript plus a short scribble, the model tends to write an overly long summary of the episode instead of helping with the scribble itself.
+
+Current direction:
+
+- NoteSmith should behave more like an **intelligent note refiner** than a summary machine.
+- Default output should be **compact**.
+- Transcript context should support the scribble, not dominate it.
+- Questions should be treated as part of the user's thinking, not as implicit requests for answers.
+- The Living Document should render as a **clean markdown note**, not as raw-looking text.
+- The loaded-video controls should shrink after load so the player keeps more space.
+- The app may eventually use a **two-step flow** if needed:
+  1. infer the scribble's intent
+  2. produce the note in the right shape
+
+That two-step design is **not yet locked**. It is a possible refinement path if one-pass prompting remains too sloppy, especially on cheaper models.

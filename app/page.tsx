@@ -19,12 +19,11 @@ import {
   saveTranscriptCache,
   saveVideoId,
 } from "@/lib/storage";
-import { generateLivingDocument } from "@/app/actions/living-document";
 
-const IDLE_TIMEOUT_MS = 60_000; // 60 seconds
+const IDLE_TIMEOUT_MS = 60_000;
 
 export default function Home() {
-  const [answerQuestions, setAnswerQuestions] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [autoUpdateStatus, setAutoUpdateStatus] = useState<AutoUpdateStatus>("manual");
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [videoId, setVideoId] = useState<string | null>(null);
@@ -34,26 +33,17 @@ export default function Home() {
   const [transcriptUnavailable, setTranscriptUnavailable] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [scribbles, setScribbles] = useState<ScribbleEntry[]>([]);
-
-  // Living document state — persisted to localStorage
   const [livingDocument, setLivingDocument] = useState<LivingDocumentState>({
     content: "",
     lastUpdated: null,
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
-
-  // Accumulates streamed chunks for live display during generation
   const [liveDocContent, setLiveDocContent] = useState("");
-  // Reference to the content to restore on error
   const priorDocContentRef = useRef("");
-
-  // Idle timer ref — tracks the last scribble change timestamp
   const lastScribbleChangeMsRef = useRef<number>(0);
-  // Interval handle ref — stored so we can clean up without deps
   const idleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load persisted state on mount
   useEffect(() => {
     const saved = loadWorkspaceState();
     if (saved.videoId) {
@@ -66,26 +56,25 @@ export default function Home() {
       setScribbles(saved.scribbles);
     }
     if (saved.settings) {
-      setAnswerQuestions(saved.settings.answerQuestions);
-      // Initialize auto-update mode from persisted setting
-      setAutoUpdateStatus(saved.settings.autoUpdateEnabled ? "on" : "manual");
+      setAutoUpdateStatus("manual");
+      saveAutoUpdateEnabled(false);
     }
 
-    // Restore living document from cache (keyed by videoId + scribbles checksum)
     const cached = loadLivingDocument(saved.videoId, saved.scribbles);
     if (cached && cached.content) {
       setLivingDocument(cached);
       priorDocContentRef.current = cached.content;
       setLastUpdated(cached.lastUpdated);
     }
+
+    setIsHydrated(true);
   }, []);
 
   useEffect(() => {
     saveSettings({
-      answerQuestions,
       autoUpdateEnabled: autoUpdateStatus !== "manual",
     });
-  }, [answerQuestions, autoUpdateStatus]);
+  }, [autoUpdateStatus]);
 
   useEffect(() => {
     if (!videoId) {
@@ -148,54 +137,67 @@ export default function Home() {
     return () => controller.abort();
   }, [videoId]);
 
-  // Core update function — shared by manual and idle-triggered paths
   const runUpdate = useCallback(async () => {
-    if (isGenerating) return;
-    if (!videoId) return;
+    if (isGenerating || !videoId) return;
+
+    const priorAutoUpdateStatus = autoUpdateStatus;
 
     setIsGenerating(true);
     setGenerationError(null);
     setAutoUpdateStatus("updating");
-
-    // Remember prior content so we can restore on error
     priorDocContentRef.current = livingDocument.content;
     setLiveDocContent("");
 
     try {
-      const stream = await generateLivingDocument(
-        transcriptSegments,
-        scribbles,
-        answerQuestions,
-      );
+      const response = await fetch("/api/living-document", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          transcript: transcriptSegments,
+          scribbles,
+        }),
+      });
 
-      const reader = stream.getReader();
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Generation failed. Please try again.");
+      }
+
+      if (!response.body) {
+        throw new Error("Generation failed: empty response stream.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
       let fullText = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = value ?? "";
+        const chunk = value ? decoder.decode(value, { stream: true }) : "";
         fullText += chunk;
         setLiveDocContent(fullText);
       }
 
-      // Stream complete — persist and switch to stable content
+      fullText += decoder.decode();
+
       const now = Date.now();
       const finalDoc: LivingDocumentState = { content: fullText, lastUpdated: now };
       setLiveDocContent("");
       setLivingDocument(finalDoc);
       saveLivingDocument(videoId, scribbles, finalDoc);
       setLastUpdated(now);
-      setAutoUpdateStatus("on");
+      setAutoUpdateStatus(priorAutoUpdateStatus === "manual" ? "manual" : "on");
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Generation failed. Please try again.";
+      const message = err instanceof Error ? err.message : "Generation failed. Please try again.";
       setGenerationError(message);
-      setAutoUpdateStatus("on");
+      setAutoUpdateStatus(priorAutoUpdateStatus === "manual" ? "manual" : "on");
     } finally {
       setIsGenerating(false);
     }
-  }, [isGenerating, videoId, transcriptSegments, scribbles, answerQuestions, livingDocument.content]);
+  }, [isGenerating, videoId, transcriptSegments, scribbles, livingDocument.content, autoUpdateStatus]);
 
   const handleUpdateNow = useCallback(() => {
     if (isGenerating) return;
@@ -242,29 +244,13 @@ export default function Home() {
   const handleScribblesChange = useCallback((newScribbles: ScribbleEntry[]) => {
     setScribbles(newScribbles);
     saveScribbles(newScribbles);
-    // Reset idle timer on any scribble activity
     lastScribbleChangeMsRef.current = Date.now();
   }, []);
 
-  // When not generating, the display uses livingDocument.content.
-  // During generation, liveDocContent takes over.
   const displayContent = isGenerating ? liveDocContent : livingDocument.content;
 
-  const handlePersistLivingDocument = useCallback(
-    (doc: LivingDocumentState) => {
-      setLivingDocument(doc);
-      if (videoId) {
-        saveLivingDocument(videoId, scribbles, doc);
-      }
-    },
-    [videoId, scribbles],
-  );
-
-  // Idle auto-update effect
   useEffect(() => {
-    // Only run when auto-update is enabled and not currently generating
     if (autoUpdateStatus !== "on") {
-      // Clear any existing interval when auto-update is disabled
       if (idleIntervalRef.current !== null) {
         clearInterval(idleIntervalRef.current);
         idleIntervalRef.current = null;
@@ -272,16 +258,13 @@ export default function Home() {
       return;
     }
 
-    // Initialize the last activity timestamp if not set
     if (lastScribbleChangeMsRef.current === 0) {
       lastScribbleChangeMsRef.current = Date.now();
     }
 
-    // Set up polling interval to check for idle expiry
     const intervalId = setInterval(() => {
       const elapsed = Date.now() - lastScribbleChangeMsRef.current;
       if (elapsed >= IDLE_TIMEOUT_MS) {
-        // Reset the timer first to prevent double-fire
         lastScribbleChangeMsRef.current = Date.now();
         runUpdate();
       }
@@ -295,11 +278,17 @@ export default function Home() {
     };
   }, [autoUpdateStatus, runUpdate]);
 
+  if (!isHydrated) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 text-sm text-gray-500">
+        Loading NoteSmith…
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col">
+    <main className="flex min-h-screen flex-col bg-gray-50">
       <Header
-        answerQuestions={answerQuestions}
-        onAnswerQuestionsChange={setAnswerQuestions}
         autoUpdateStatus={autoUpdateStatus}
         lastUpdated={lastUpdated}
         onUpdateNow={handleUpdateNow}
@@ -322,7 +311,6 @@ export default function Home() {
         livingDocumentLastUpdated={livingDocument.lastUpdated}
         isGenerating={isGenerating}
         generationError={generationError}
-        onPersistLivingDocument={handlePersistLivingDocument}
       />
     </main>
   );

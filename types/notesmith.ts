@@ -41,7 +41,6 @@ export interface LivingDocumentState {
  */
 export interface WorkspaceSettings {
   autoUpdateEnabled: boolean;
-  answerQuestions: boolean;
 }
 
 /**

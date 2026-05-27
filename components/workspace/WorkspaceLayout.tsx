@@ -7,7 +7,7 @@ import { TranscriptPanel } from "@/components/transcript/TranscriptPanel";
 import { TranscriptUnavailable } from "@/components/transcript/TranscriptUnavailable";
 import { ScribblesPanel } from "@/components/scribbles/ScribblesPanel";
 import { LivingDocumentPanel } from "@/components/living-document/LivingDocumentPanel";
-import type { TranscriptSegment, ScribbleEntry, LivingDocumentState } from "@/types/notesmith";
+import type { TranscriptSegment, ScribbleEntry } from "@/types/notesmith";
 
 interface WorkspaceLayoutProps {
   videoId: string | null;
@@ -24,7 +24,6 @@ interface WorkspaceLayoutProps {
   livingDocumentLastUpdated: number | null;
   isGenerating?: boolean;
   generationError?: string | null;
-  onPersistLivingDocument?: (doc: LivingDocumentState) => void;
 }
 
 export function WorkspaceLayout({
@@ -39,42 +38,44 @@ export function WorkspaceLayout({
   scribbles,
   onScribblesChange,
   livingDocumentContent,
-  livingDocumentLastUpdated,
   isGenerating = false,
   generationError = null,
-  onPersistLivingDocument,
 }: WorkspaceLayoutProps) {
   const [topRowSizes, setTopRowSizes] = useState<number[]>([50, 50]);
   const [bottomRowSizes, setBottomRowSizes] = useState<number[]>([50, 50]);
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col">
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col overflow-hidden">
       <PanelGroup direction="vertical">
         <Panel defaultSize={50} minSize={15}>
           <PanelGroup direction="horizontal" onLayout={setTopRowSizes}>
             <Panel defaultSize={topRowSizes[0]} minSize={15}>
-              <div className="h-full border-r border-gray-200 bg-white overflow-auto">
-                <div className="p-4">
-                  <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
-                    YouTube Player
-                  </h2>
+              <div className="h-full overflow-hidden border-r border-gray-200 bg-white">
+                <div className="flex h-full min-h-0 flex-col p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-medium uppercase tracking-wide text-gray-500">
+                      YouTube Player
+                    </h2>
+                  </div>
                   <VideoUrlForm currentVideoId={videoId} onVideoIdChange={onVideoIdChange} />
                   {videoId && (
-                    <YouTubePlayer
-                      videoId={videoId}
-                      onTimeUpdate={onPlaybackTimeChange}
-                    />
+                    <div className="mt-3 min-h-0 flex-1">
+                      <YouTubePlayer
+                        videoId={videoId}
+                        onTimeUpdate={onPlaybackTimeChange}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
             </Panel>
 
-            <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize" />
+            <PanelResizeHandle className="w-1 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400" />
 
             <Panel defaultSize={topRowSizes[1]} minSize={15}>
-              <div className="h-full bg-white overflow-auto">
-                <div className="p-4">
-                  <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
+              <div className="h-full overflow-hidden bg-white">
+                <div className="flex h-full min-h-0 flex-col p-4">
+                  <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-gray-500">
                     Transcript
                   </h2>
                   {!videoId ? (
@@ -95,14 +96,14 @@ export function WorkspaceLayout({
           </PanelGroup>
         </Panel>
 
-        <PanelResizeHandle className="h-1 bg-gray-200 hover:bg-blue-400 transition-colors cursor-row-resize" />
+        <PanelResizeHandle className="h-1 cursor-row-resize bg-gray-200 transition-colors hover:bg-blue-400" />
 
         <Panel defaultSize={50} minSize={15}>
           <PanelGroup direction="horizontal" onLayout={setBottomRowSizes}>
             <Panel defaultSize={bottomRowSizes[0]} minSize={15}>
-              <div className="h-full border-r border-gray-200 bg-white overflow-auto">
-                <div className="p-4">
-                  <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
+              <div className="h-full overflow-hidden border-r border-gray-200 bg-white">
+                <div className="flex h-full min-h-0 flex-col p-4">
+                  <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-gray-500">
                     Raw Scribbles
                   </h2>
                   <ScribblesPanel
@@ -116,19 +117,18 @@ export function WorkspaceLayout({
               </div>
             </Panel>
 
-            <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize" />
+            <PanelResizeHandle className="w-1 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400" />
 
             <Panel defaultSize={bottomRowSizes[1]} minSize={15}>
-              <div className="h-full bg-white overflow-auto">
-                <div className="p-4">
-                  <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
+              <div className="h-full overflow-hidden bg-white">
+                <div className="flex h-full min-h-0 flex-col p-4">
+                  <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-gray-500">
                     Living Document
                   </h2>
                   <LivingDocumentPanel
                     content={livingDocumentContent}
                     isGenerating={isGenerating}
                     error={generationError}
-                    onPersist={onPersistLivingDocument}
                   />
                 </div>
               </div>
@@ -142,9 +142,9 @@ export function WorkspaceLayout({
 
 function PlaceholderPanel({ name }: { name: string }) {
   return (
-    <div className="flex flex-col items-center justify-center h-48 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+    <div className="flex h-48 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-gray-400">
       <span className="text-lg font-medium">{name}</span>
-      <span className="text-sm mt-1">Placeholder</span>
+      <span className="mt-1 text-sm">Placeholder</span>
     </div>
   );
 }

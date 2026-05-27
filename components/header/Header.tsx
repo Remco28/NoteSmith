@@ -3,8 +3,6 @@
 import type { AutoUpdateStatus } from "@/types/notesmith";
 
 interface HeaderProps {
-  answerQuestions: boolean;
-  onAnswerQuestionsChange: (value: boolean) => void;
   autoUpdateStatus: AutoUpdateStatus;
   lastUpdated: number | null;
   onUpdateNow: () => void;
@@ -16,8 +14,6 @@ interface HeaderProps {
 }
 
 export function Header({
-  answerQuestions,
-  onAnswerQuestionsChange,
   autoUpdateStatus,
   lastUpdated,
   onUpdateNow,
@@ -64,7 +60,6 @@ export function Header({
     try {
       await navigator.clipboard.writeText(livingDocumentContent);
     } catch {
-      // Fallback for older browsers
       const ta = document.createElement("textarea");
       ta.value = livingDocumentContent;
       ta.style.position = "fixed";
@@ -79,46 +74,31 @@ export function Header({
   const hasContent = !!livingDocumentContent;
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-4">
-      {/* App title */}
-      <h1 className="text-lg font-semibold text-gray-900 mr-4">NoteSmith</h1>
+    <header className="flex h-14 items-center gap-4 border-b border-gray-200 bg-white px-4">
+      <h1 className="mr-2 text-lg font-semibold text-gray-900">NoteSmith</h1>
 
-      {/* Answer questions toggle */}
-      <label className="flex items-center gap-2 text-sm text-gray-700">
-        <span>Answer questions</span>
-        <input
-          type="checkbox"
-          checked={answerQuestions}
-          onChange={(e) => onAnswerQuestionsChange(e.target.checked)}
-          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-        />
-      </label>
-
-      {/* Auto-update toggle */}
       <button
         onClick={onAutoUpdateToggle}
         disabled={isUpdating}
-        className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span>{renderAutoUpdateStatus()}</span>
       </button>
 
-      {/* Update Now button */}
       <button
         onClick={onUpdateNow}
         disabled={isUpdating}
-        className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isUpdating ? "Updating…" : "Update Now"}
       </button>
 
-      {/* Export actions */}
       <div className="ml-auto flex items-center gap-2">
         <button
           onClick={handleCopyToClipboard}
           disabled={!hasContent}
           title={hasContent ? "Copy living document to clipboard" : "No document to copy"}
-          className="px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-md bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Copy
         </button>
@@ -126,7 +106,7 @@ export function Header({
           onClick={handleDownloadMarkdown}
           disabled={!hasContent}
           title={hasContent ? "Download living document as Markdown" : "No document to download"}
-          className="px-3 py-1.5 text-sm text-white bg-gray-700 hover:bg-gray-800 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-md bg-gray-700 px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Download .md
         </button>

@@ -15,6 +15,7 @@ interface YouTubePlayerInstance {
   pauseVideo: () => void;
   getCurrentTime: () => number;
   destroy: () => void;
+  setSize: (width: number, height: number) => void;
 }
 
 declare const YT: {
@@ -57,12 +58,32 @@ declare global {
  * Does not auto-play by default.
  */
 export function YouTubePlayer({ videoId, onReady, onTimeUpdate, onError }: YouTubePlayerProps) {
+  const playerShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YouTubePlayerInstance | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const timeUpdateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoIdRef = useRef(videoId);
+
+  const resizePlayer = useCallback(() => {
+    const shell = playerShellRef.current;
+    const container = playerContainerRef.current;
+    const player = playerRef.current;
+    if (!shell || !container || !player) return;
+
+    const availableWidth = shell.clientWidth;
+    const availableHeight = shell.clientHeight;
+    if (!availableWidth || !availableHeight) return;
+
+    const widthFromHeight = availableHeight * (16 / 9);
+    const targetWidth = Math.min(availableWidth, widthFromHeight);
+    const targetHeight = targetWidth * (9 / 16);
+
+    container.style.width = `${targetWidth}px`;
+    container.style.height = `${targetHeight}px`;
+    player.setSize(targetWidth, targetHeight);
+  }, []);
 
   // Keep videoId ref updated
   useEffect(() => {
@@ -103,6 +124,7 @@ export function YouTubePlayer({ videoId, onReady, onTimeUpdate, onError }: YouTu
         events: {
           onReady: () => {
             setIsReady(true);
+            resizePlayer();
             onReady?.();
           },
           onStateChange: (event: { data: number }) => {
@@ -146,6 +168,21 @@ export function YouTubePlayer({ videoId, onReady, onTimeUpdate, onError }: YouTu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
+  useEffect(() => {
+    const shell = playerShellRef.current;
+    if (!shell || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      resizePlayer();
+    });
+
+    observer.observe(shell);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [resizePlayer]);
+
   const startTimeUpdates = useCallback(() => {
     if (timeUpdateIntervalRef.current) return;
 
@@ -181,9 +218,12 @@ export function YouTubePlayer({ videoId, onReady, onTimeUpdate, onError }: YouTu
   }, [isReady, videoId]);
 
   return (
-    <div className="space-y-3">
-      <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
-        <div ref={playerContainerRef} className="absolute top-0 left-0 w-full h-full" />
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div
+        ref={playerShellRef}
+        className="flex min-h-[220px] flex-1 items-center justify-center overflow-hidden rounded-xl bg-black/95"
+      >
+        <div ref={playerContainerRef} className="max-h-full max-w-full" />
       </div>
 
       {!isReady && videoId && (

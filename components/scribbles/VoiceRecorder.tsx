@@ -49,20 +49,22 @@ interface VoiceRecorderProps {
   disabled?: boolean;
 }
 
-// Check for SpeechRecognition support
-const speechRecognitionSupported =
-  typeof window !== "undefined" &&
-  ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
-
 export function VoiceRecorder({
   videoId,
   onTranscript,
   disabled = false,
 }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
-  const [isSupported] = useState(() => speechRecognitionSupported);
+  const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef<string>("");
+
+  useEffect(() => {
+    setIsSupported(
+      typeof window !== "undefined" &&
+        ("SpeechRecognition" in window || "webkitSpeechRecognition" in window),
+    );
+  }, []);
 
   // Initialize SpeechRecognition
   useEffect(() => {

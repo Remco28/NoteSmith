@@ -4,7 +4,7 @@
 
 **Goal:** Build the first working NoteSmith v1 app: a YouTube-only, transcript-assisted thinking workspace with four panels, local persistence, voice capture, and AI-generated Living Document updates.
 
-**Architecture:** A single Next.js 15 App Router app deployed on Vercel. Browser owns session state through localStorage. Server Actions handle transcript retrieval normalization and OpenAI generation. The Living Document is regenerated as a full-document streaming rewrite.
+**Architecture:** A single Next.js 15 App Router app deployed on Vercel. Browser owns session state through localStorage. Server-side app code handles transcript retrieval normalization and OpenAI generation. The Living Document is regenerated as a full-document streaming rewrite, but the desired output shape is brief note refinement rather than long-form summary.
 
 **Tech Stack:** Next.js 15, TypeScript, React, Tailwind CSS, Tiptap, react-resizable-panels, OpenAI SDK, Web Speech API.
 
@@ -25,8 +25,26 @@
 - User manually resumes playback
 - Manual `Update Now` + 60s idle auto-update
 - Whole-document streaming rewrite for Living Document
-- `answerQuestions` is a user-visible toggle persisted locally
+- Output should err on the side of brevity
+- Scribbles are the main unit of intent; transcript context should support them rather than overwhelm them
+- Questions should normally remain open notes/questions rather than being auto-answered
+- The Living Document should render as a clearly formatted markdown note, not raw-looking text
+- After a video loads, player controls should collapse into a smaller bar to preserve player space
 - Living Document may be cached locally as a convenience, but remains derived output
+
+### Post-build product-direction note
+
+After the first working build, the desired behavior became clearer:
+
+- NoteSmith should behave more like an **intelligent note refiner** than a transcript summarizer.
+- Scribbles may be questions, fragments, reactions, lists of names, or half-formed tangents.
+- The output should usually be a **short useful note**, not a long recap of the episode.
+- Questions are often part of thinking out loud, so the product should stop treating them as implicit answer requests.
+- A future refinement may split generation into two passes:
+  1. infer scribble intent
+  2. generate the output in the right shape
+
+That two-pass idea is promising but **not yet mandatory**.
 
 ---
 
@@ -56,9 +74,8 @@ Until Gate A passes:
 ```text
 /home/frank/Projects/NoteSmith
   app/
-    actions/
-      living-document.ts
     api/
+      living-document/route.ts
       transcript/route.ts
     globals.css
     layout.tsx
@@ -208,7 +225,6 @@ Until Gate A passes:
 - Four-panel layout with resizable panels
 - Header includes:
   - app title
-  - `Answer questions` toggle
   - auto-update toggle/status
   - `Update Now` button
   - export actions placeholder
@@ -371,7 +387,7 @@ Until Gate A passes:
 **Objective:** Implement the first server-side OpenAI generation path and the client-side streaming display.
 
 **Files:**
-- Create: `app/actions/living-document.ts`
+- Create: `app/api/living-document/route.ts`
 - Create: `lib/openai.ts`
 - Create: `components/living-document/LivingDocumentPanel.tsx`
 - Modify: `app/page.tsx`
@@ -382,15 +398,17 @@ Until Gate A passes:
 - Input to generation:
   - transcript
   - raw scribbles
-  - `answerQuestions` preference
 - Output:
   - whole-document markdown rewrite
   - streamed into the Living Document panel
+  - **brief by default**, unless the scribble clearly calls for broader synthesis
 - Preserve prior user state on generation failure
+- Treat the scribble as the main unit of intent; transcript context is supporting evidence, not the main subject
 
 **Verification:**
 - `Update Now` produces a streamed Living Document
-- `answerQuestions` toggle materially changes prompt behavior
+- narrow scribbles produce compact useful notes rather than episode-length summaries
+- question-shaped scribbles remain useful open notes unless the user clearly turns them into claims
 - generation failure leaves scribbles intact and shows retryable error state
 
 **Commit:**

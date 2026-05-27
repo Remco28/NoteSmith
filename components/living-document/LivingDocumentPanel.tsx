@@ -1,120 +1,78 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { LivingDocumentState } from "@/types/notesmith";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface LivingDocumentPanelProps {
   /** The current document content. */
   content: string;
-  /** Called when the parent should begin streaming a new generation. */
-  onGenerate?: () => void;
   /** True while a generation stream is in progress. */
   isGenerating?: boolean;
   /** Error message from the most recent failed generation, or null. */
   error: string | null;
-  /** Callback to persist the final state to localStorage. */
-  onPersist?: (doc: LivingDocumentState) => void;
 }
 
-/**
- * Renders the living document as a streamed, scrollable markdown pane.
- *
- * Behaviour:
- * - Renders prior content on mount (loaded from storage by the parent).
- * - While `isGenerating=true`, appends streamed chunks to visible content.
- * - On error, preserves prior content (never overwrites with partial chunks).
- * - On success, calls `onPersist` so the parent can save to localStorage.
- */
 export function LivingDocumentPanel({
-  content: initialContent,
-  onGenerate,
+  content,
   isGenerating = false,
   error,
-  onPersist,
 }: LivingDocumentPanelProps) {
-  // Live content while streaming; falls back to initialContent when idle
-  const [liveContent, setLiveContent] = useState(initialContent);
-  const priorContentRef = useRef(initialContent);
+  const priorContentRef = useRef(content);
 
-  // Sync live content when not generating (initial mount / done streaming)
   useEffect(() => {
-    if (!isGenerating) {
-      setLiveContent(initialContent);
+    if (!isGenerating && content) {
+      priorContentRef.current = content;
     }
-  }, [isGenerating, initialContent]);
+  }, [content, isGenerating]);
 
-  // Keep a ref to the latest prior content for error recovery
-  useEffect(() => {
-    priorContentRef.current = initialContent;
-  }, [initialContent]);
-
-  // Expose a way for the parent to feed streamed chunks in
-  // We use a callback ref pattern so the parent can drive streaming
-  const appendChunkRef = useRef<((chunk: string) => void) | null>(null);
-
-  appendChunkRef.current = (chunk: string) => {
-    setLiveContent((prev) => prev + chunk);
-  };
-
-  // When generation completes successfully, persist and switch back to stable content
-  useEffect(() => {
-    if (!isGenerating && liveContent !== priorContentRef.current && !error) {
-      // Generation just finished — persist the final result
-      onPersist?.({
-        content: liveContent,
-        lastUpdated: Date.now(),
-      });
-    }
-  }, [isGenerating]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const isEmpty = !liveContent && !isGenerating;
+  const isEmpty = !content && !isGenerating;
   const showError = error !== null;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Error banner */}
+    <div className="flex h-full min-h-0 flex-col">
       {showError && (
-        <div className="mx-4 mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="mx-4 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <span className="font-medium">Generation failed:</span> {error}
           {priorContentRef.current && (
-            <span className="block mt-1 text-red-500 text-xs">
+            <span className="mt-1 block text-xs text-red-500">
               Your prior document is preserved below.
             </span>
           )}
         </div>
       )}
 
-      {/* Empty state */}
       {isEmpty && !isGenerating && (
-        <div className="flex flex-col items-center justify-center flex-1 text-gray-400">
+        <div className="flex flex-1 flex-col items-center justify-center text-gray-400">
           <span className="text-base font-medium">No document yet</span>
-          <span className="text-sm mt-1">Click &ldquo;Update Now&rdquo; to generate.</span>
+          <span className="mt-1 text-sm">Click &ldquo;Update Now&rdquo; to generate.</span>
         </div>
       )}
 
-      {/* Generating skeleton */}
-      {isGenerating && !liveContent && (
-        <div className="flex flex-col gap-2 p-4 animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-3/4" />
-          <div className="h-4 bg-gray-200 rounded w-1/2" />
-          <div className="h-4 bg-gray-200 rounded w-5/6" />
-          <div className="h-4 bg-gray-200 rounded w-2/3" />
+      {isGenerating && !content && (
+        <div className="animate-pulse p-4">
+          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="h-5 w-1/3 rounded bg-gray-200" />
+            <div className="h-4 w-5/6 rounded bg-gray-200" />
+            <div className="h-4 w-2/3 rounded bg-gray-200" />
+            <div className="h-4 w-3/4 rounded bg-gray-200" />
+          </div>
         </div>
       )}
 
-      {/* Live document */}
-      {liveContent && (
+      {content && (
         <div className="flex-1 overflow-auto p-4">
-          <article className="prose prose-sm max-w-none">
-            <MarkdownRenderer content={liveContent} />
+          <article className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="notesmith-markdown prose prose-sm max-w-none p-5 text-gray-800 prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900 prose-code:text-gray-900 prose-pre:bg-gray-950 prose-li:marker:text-gray-400">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            </div>
           </article>
         </div>
       )}
 
-      {/* Inline generating indicator — shown when content exists and new content streams in */}
-      {isGenerating && liveContent && (
-        <div className="px-4 pb-2 text-xs text-blue-500 italic flex items-center gap-1">
-          <span className="inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+      {isGenerating && content && (
+        <div className="flex items-center gap-1 px-4 pb-2 text-xs italic text-blue-500">
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-400" />
           Updating…
         </div>
       )}
@@ -122,109 +80,6 @@ export function LivingDocumentPanel({
   );
 }
 
-/**
- * Minimal markdown renderer using innerHTML.
- * Handles the markdown constructs that are most common in LLM output:
- * headings, bold, italic, inline code, code blocks, unordered lists, links.
- * Not a full spec parser — intentionally light for v1.
- */
-function MarkdownRenderer({ content }: { content: string }) {
-  const html = renderMarkdownToHtml(content);
-  return (
-    <div
-      className="markdown-body"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
-
-function renderMarkdownToHtml(md: string): string {
-  let out = md;
-
-  // Code blocks (```lang\n...\n```)
-  out = out.replace(/```(\w*)\n([\s\S]*?)```/g, (_, _lang, code) => {
-    return `<pre><code>${escapeHtml(code.trim())}</code></pre>`;
-  });
-
-  // Inline code (`...`)
-  out = out.replace(/`([^`]+)`/g, `<code>$1</code>`);
-
-  // Headings
-  out = out.replace(/^######\s+(.*)$/gm, "<h6>$1</h6>");
-  out = out.replace(/^#####\s+(.*)$/gm, "<h5>$1</h5>");
-  out = out.replace(/^####\s+(.*)$/gm, "<h4>$1</h4>");
-  out = out.replace(/^###\s+(.*)$/gm, "<h3>$1</h3>");
-  out = out.replace(/^##\s+(.*)$/gm, "<h2>$1</h2>");
-  out = out.replace(/^#\s+(.*)$/gm, "<h1>$1</h1>");
-
-  // Bold
-  out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
-
-  // Italic
-  out = out.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  out = out.replace(/_(.+?)_/g, "<em>$1</em>");
-
-  // Strikethrough
-  out = out.replace(/~~(.+?)~~/g, "<del>$1</del>");
-
-  // Unordered lists (lines starting with - or *)
-  out = out.replace(/^[\-\*]\s+(.*)$/gm, "<li>$1</li>");
-  // Group consecutive <li> into <ul>
-  out = out.replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`);
-
-  // Ordered lists
-  out = out.replace(/^\d+\.\s+(.*)$/gm, "<li>$1</li>");
-
-  // Blockquotes
-  out = out.replace(/^>\s+(.*)$/gm, "<blockquote>$1</blockquote>");
-
-  // Horizontal rules
-  out = out.replace(/^---$/gm, "<hr>");
-
-  // Links
-  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>`);
-
-  // Paragraphs: wrap remaining lines
-  const lines = out.split("\n");
-  const processed = lines.map((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return "";
-    if (
-      trimmed.startsWith("<") &&
-      (trimmed.startsWith("<h") ||
-        trimmed.startsWith("<ul") ||
-        trimmed.startsWith("<ol") ||
-        trimmed.startsWith("<li") ||
-        trimmed.startsWith("<blockquote") ||
-        trimmed.startsWith("<pre") ||
-        trimmed.startsWith("<hr") ||
-        trimmed.startsWith("<div"))
-    ) {
-      return line;
-    }
-    return `<p>${line}</p>`;
-  });
-
-  return processed.join("\n");
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-/**
- * Expose a controlled-streaming hook for the parent.
- * The parent calls `streamChunk` for each chunk from the server action,
- * and `finalize` (optionally with an error) when the stream ends.
- *
- * Usage:
- *   const { ref: appendChunkRef, streamChunk, finalize, liveContent } = useStreamingState(initialContent);
- */
 export function useStreamingState(initialContent: string) {
   const [liveContent, setLiveContent] = useState(initialContent);
   const priorContentRef = useRef(initialContent);
@@ -239,7 +94,6 @@ export function useStreamingState(initialContent: string) {
   };
 
   const finalize = (err?: string) => {
-    // If error, restore prior content
     if (err) {
       setLiveContent(priorContentRef.current);
     }

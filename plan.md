@@ -5,7 +5,7 @@
 
 ## Goal
 
-Build a **YouTube-only, transcript-assisted thinking tool** that helps Frank turn messy live thoughts into a cleaner evolving document while watching a video.
+Build a **YouTube-only, transcript-assisted thinking tool** that helps Frank turn messy live thoughts into **shorter, clearer, more useful notes** while watching a video.
 
 This is **not primarily a note-taking app**. It should be able to support note-taking, but its core job is to help thinking happen *against a transcript*.
 
@@ -21,6 +21,8 @@ NoteSmith is a four-panel workspace:
 The key idea is to keep the messy layer and the structured layer separate:
 - **Raw Scribbles** = unfiltered thinking
 - **Living Document** = AI-shaped output
+
+The important new refinement is that the AI output should **err on the side of brevity**. It should help organize thought, not automatically expand into a full episode summary.
 
 ## v1 decisions locked
 
@@ -48,7 +50,11 @@ The key idea is to keep the messy layer and the structured layer separate:
 - Keep **animation in v1**
 - Voice and cheer should come from design quality, not motivational copy
 - If a transcript is unavailable, show a **clear user-facing message** instead of attempting a fallback
-- Add a user-facing toggle for whether the Living Document should **answer open questions** or preserve them as open notes
+- Default output should be **compact and useful**, not comprehensive
+- When in doubt, prefer a short refined note over a long polished essay
+- Questions should usually remain **open questions / refined notes**, not be auto-answered
+- The Living Document should look **visibly cleaner than the scribbles** through real markdown rendering and calmer presentation
+- After a video is loaded, the URL/change/clear area should collapse into a **smaller post-load control strip**
 
 ### Voice input
 - Include **voice input in v1**
@@ -71,6 +77,36 @@ It is not:
 It is:
 - a focused workspace for thinking while consuming a YouTube video
 - a tool for turning raw reaction into structured synthesis
+- a tool for cleaning up messy fragments, questions, tangents, and reactions into usable notes
+
+## Scribble interpretation model
+
+Raw scribbles are not guaranteed to be neat or consistent. They may be:
+
+- direct questions
+- messy fragments
+- lists of names or topics
+- partial claims
+- reactions or judgments
+- off-transcript tangents sparked by the discussion
+
+Examples:
+
+- `Who are Nvidia's competitors? Do they even have any?`
+- `John Doe is trying very hard to shake his perception as a greedy tech bro`
+- `Agent orchestrators. OpenClaw, Hermes, PaperClip`
+- `agent orchestrate, openclaw?, openclaude? hermes, paperclip`
+- `electricity usage, water, 1 gallon of water per prompt?, new data says 5ml of water, dunno what's true`
+
+The model's job is to make sense of these notes in a way that is:
+
+- brief
+- helpful
+- tolerant of messiness
+- honest about uncertainty
+- transcript-aware when useful, but not transcript-dominated
+
+Questions are part of the note-taking/thinking process. In v1, NoteSmith should **not assume a question wants an answer**. A question may remain a question, be sharpened, or be lightly contextualized.
 
 ## Recommended v1 architecture
 
@@ -86,7 +122,7 @@ It is:
 - local state first; only introduce Zustand if state becomes awkward
 
 ### Backend
-- Use **Next.js Server Actions** for LLM calls
+- Use **server-side app routes / handlers** for LLM calls
 - Use **OpenAI SDK** server-side
 - No separate backend service in v1
 - No separate database in v1
@@ -103,8 +139,8 @@ In this project, “backend routes” just means **server-side code that runs in
 
 For NoteSmith, that means:
 - browser gathers transcript + scribbles
-- browser triggers a server action
-- server action calls OpenAI
+- browser calls server-side app code
+- server-side app code calls OpenAI
 - server streams back the Living Document update
 
 So there is no separate “backend app” in v1. The backend logic lives inside the Next.js project.
@@ -154,7 +190,7 @@ Support both:
 - Also allow manual **Update Now** at any time
 
 ### Document update strategy
-**Rewrite the whole Living Document each time.**
+**Rewrite the whole Living Document each time** at the transport/storage layer, but the **content itself should stay brief** unless the user's scribbles clearly call for something broader.
 
 ### Why this is the right v1 tradeoff
 Whole-document rewrite is simpler than incremental patching because it avoids:
@@ -173,6 +209,25 @@ Since v1 is:
 
 ### Streaming
 The rewrite should be **streamed** into the Living Document so the output feels alive instead of batch-replaced after a long pause.
+
+### Output-shape rule
+The app should not assume the user always wants a summary. In most cases, the best output is a compact note that does one of the following:
+
+- preserves or sharpens a question
+- cleans up a fragment
+- groups related names/topics
+- preserves a factual uncertainty for later checking
+- lightly anchors the note to what was happening in the transcript
+
+This is closer to **note refinement** than **podcast summarization**.
+
+### Possible future refinement: two-step generation
+If one-pass prompting keeps producing bloated or confused output, a future version may split generation into two steps:
+
+1. infer the intent of the scribble
+2. produce the note in the correct shape
+
+This is a possible optimization path, especially for cheaper models, but it is **not yet a locked architectural requirement**.
 
 ## Suggested runtime defaults
 
@@ -203,7 +258,6 @@ Stored in localStorage:
 - raw scribbles
 - panel sizes
 - auto-update preference
-- answer-questions preference
 - current working session state as needed
 
 ### Derived state
@@ -232,7 +286,7 @@ Show a recoverable message and keep user text intact:
 ### Browser refresh
 - restore scribbles from localStorage
 - restore layout from localStorage
-- restore toggles/preferences from localStorage
+- restore preferences from localStorage
 
 ## Raw Scribbles behavior
 
@@ -307,7 +361,6 @@ These are smaller than before, but still open:
 1. Exact OpenAI model name for v1
 2. Exact transcript retrieval library/API integration details for YouTube
 3. Exact UX for auto-update toggle states and indicators
-4. Exact UX/copy for the answer-questions toggle
 5. Whether Living Document should be persisted locally too for recovery, or always treated as re-derivable
 
 ## Current recommendation on that last question
@@ -333,7 +386,8 @@ For v1, NoteSmith should be:
 - voice input pauses video
 - voice input appends as a new timestamped scribble
 - scribbles stay editable and deletable
-- answer-questions behavior is user-toggleable
 - no auth yet
+- questions are preserved as notes rather than auto-answered
+- the loaded-video controls collapse after load to save space
 
 That is small enough to ship and strong enough to learn from.

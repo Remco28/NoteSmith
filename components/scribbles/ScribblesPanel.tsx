@@ -66,34 +66,36 @@ export function ScribblesPanel({
   }, [handleAddScribble]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-gray-400">
-          {scribbles.length === 0
-            ? "No scribbles yet"
-            : `${scribbles.length} scribbl${scribbles.length === 1 ? "e" : "es"}`}
-        </span>
-        <div className="flex items-center gap-2">
-          <VoiceRecorder
-            videoId={videoId}
-            onTranscript={handleVoiceTranscript}
-            disabled={disabled}
-          />
-          <button
-            onClick={handleAddClick}
-            disabled={disabled}
-            className="text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-md transition-colors"
-          >
-            + Add scribble
-          </button>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-gray-100 bg-white px-4 pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs text-gray-400">
+            {scribbles.length === 0
+              ? "No scribbles yet"
+              : `${scribbles.length} scribbl${scribbles.length === 1 ? "e" : "es"}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <VoiceRecorder
+              videoId={videoId}
+              onTranscript={handleVoiceTranscript}
+              disabled={disabled}
+            />
+            <button
+              onClick={handleAddClick}
+              disabled={disabled}
+              className="text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-md transition-colors"
+            >
+              + Add scribble
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
         {scribbles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+          <div className="flex h-32 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-gray-400">
             <span className="text-sm">No scribbles yet</span>
-            <span className="text-xs mt-1">Click &quot;Add scribble&quot; to start</span>
+            <span className="mt-1 text-xs">Click &quot;Add scribble&quot; to start</span>
           </div>
         ) : (
           [...scribbles]
