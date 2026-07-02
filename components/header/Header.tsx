@@ -7,6 +7,7 @@ interface HeaderProps {
   lastUpdated: number | null;
   onUpdateNow: () => void;
   onAutoUpdateToggle: () => void;
+  updateDisabledReason?: string | null;
   /** Current living document content for export actions. */
   livingDocumentContent: string;
   /** Video ID used to name the exported file. */
@@ -18,10 +19,12 @@ export function Header({
   lastUpdated,
   onUpdateNow,
   onAutoUpdateToggle,
+  updateDisabledReason = null,
   livingDocumentContent,
   videoId,
 }: HeaderProps) {
   const isUpdating = autoUpdateStatus === "updating";
+  const isUpdateDisabled = isUpdating || updateDisabledReason !== null;
 
   const formatLastUpdated = (timestamp: number | null): string => {
     if (!timestamp) return "never";
@@ -87,7 +90,8 @@ export function Header({
 
       <button
         onClick={onUpdateNow}
-        disabled={isUpdating}
+        disabled={isUpdateDisabled}
+        title={updateDisabledReason ?? undefined}
         className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isUpdating ? "Updating…" : "Update Now"}

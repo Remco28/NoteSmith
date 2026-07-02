@@ -138,7 +138,17 @@ export default function Home() {
   }, [videoId]);
 
   const runUpdate = useCallback(async () => {
-    if (isGenerating || !videoId) return;
+    const hasScribbles = scribbles.some((scribble) => scribble.text.trim().length > 0);
+    const canGenerate =
+      !isGenerating &&
+      Boolean(videoId) &&
+      !isTranscriptLoading &&
+      !transcriptUnavailable &&
+      !transcriptError &&
+      transcriptSegments.length > 0 &&
+      hasScribbles;
+
+    if (!canGenerate) return;
 
     const priorAutoUpdateStatus = autoUpdateStatus;
 
@@ -197,7 +207,17 @@ export default function Home() {
     } finally {
       setIsGenerating(false);
     }
-  }, [isGenerating, videoId, transcriptSegments, scribbles, livingDocument.content, autoUpdateStatus]);
+  }, [
+    isGenerating,
+    videoId,
+    transcriptSegments,
+    scribbles,
+    livingDocument.content,
+    autoUpdateStatus,
+    isTranscriptLoading,
+    transcriptUnavailable,
+    transcriptError,
+  ]);
 
   const handleUpdateNow = useCallback(() => {
     if (isGenerating) return;
@@ -247,6 +267,20 @@ export default function Home() {
     lastScribbleChangeMsRef.current = Date.now();
   }, []);
 
+  const updateDisabledReason = (() => {
+    if (!videoId) return "Load a YouTube video first.";
+    if (isTranscriptLoading) return "Wait for the transcript to finish loading.";
+    if (transcriptUnavailable) {
+      return "This video has no available transcript. NoteSmith needs a transcript-backed YouTube video.";
+    }
+    if (transcriptError) return "Fix the transcript error before generating.";
+    if (transcriptSegments.length === 0) return "Load a transcript-backed YouTube video first.";
+    if (!scribbles.some((scribble) => scribble.text.trim().length > 0)) {
+      return "Add at least one raw scribble first.";
+    }
+    return null;
+  })();
+
   const displayContent = isGenerating ? liveDocContent : livingDocument.content;
 
   useEffect(() => {
@@ -263,6 +297,7 @@ export default function Home() {
     }
 
     const intervalId = setInterval(() => {
+      if (updateDisabledReason !== null) return;
       const elapsed = Date.now() - lastScribbleChangeMsRef.current;
       if (elapsed >= IDLE_TIMEOUT_MS) {
         lastScribbleChangeMsRef.current = Date.now();
@@ -276,7 +311,7 @@ export default function Home() {
       clearInterval(intervalId);
       idleIntervalRef.current = null;
     };
-  }, [autoUpdateStatus, runUpdate]);
+  }, [autoUpdateStatus, runUpdate, updateDisabledReason]);
 
   if (!isHydrated) {
     return (
@@ -293,6 +328,7 @@ export default function Home() {
         lastUpdated={lastUpdated}
         onUpdateNow={handleUpdateNow}
         onAutoUpdateToggle={handleAutoUpdateToggle}
+        updateDisabledReason={updateDisabledReason}
         livingDocumentContent={livingDocument.content}
         videoId={videoId}
       />
