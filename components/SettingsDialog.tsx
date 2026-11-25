@@ -119,7 +119,7 @@ export function SettingsDialog({
                 autoComplete="off"
                 spellCheck={false}
                 value={key}
-                placeholder={serverKey[draft.provider] ? "Optional: this server has its own key" : p.keyHint}
+                placeholder={serverKey[draft.provider] ? "Optional here" : p.keyHint}
                 onChange={(e) => setDraft({ ...draft, apiKeys: { ...draft.apiKeys, [draft.provider]: e.target.value } })}
                 className="field pr-9 font-mono"
               />
@@ -175,7 +175,8 @@ export function SettingsDialog({
             <span>
               <span className="block text-body text-ink">Forge automatically</span>
               <span className="block text-caption text-faint">
-                Refine new scribbles a few seconds after you stop adding them.
+                Refine new scribbles a few seconds after you stop adding them.{" "}
+                {serverKey[draft.provider] && !key.trim() ? "This server has its own key, so yours is optional." : ""}
               </span>
             </span>
           </label>
@@ -189,8 +190,8 @@ export function SettingsDialog({
             <span>
               <span className="block text-body text-ink">Show what pointing scribbles refer to</span>
               <span className="block text-caption text-faint">
-                For a scribble like &ldquo;lol that&rdquo;, show what was being said, taken from the transcript and
-                marked as such: (re: …). Your own words are never changed.
+                For a scribble like &ldquo;lol that&rdquo;, quote what was being said just before, marked (re:
+                &ldquo;…&rdquo;). It&apos;s a best guess at what you reacted to. Your own words are never changed.
               </span>
             </span>
           </label>

@@ -27,10 +27,12 @@ Short fades of 120 ms (`--duration`) for interface changes. The only longer anim
 
 ## Behaviour
 
-- **Scribbles are the content.** The AI rewrites wording only. It never answers questions or adds facts (see `lib/refine/prompt.ts`), and code guarantees no scribble is dropped (`lib/doc.ts`).
+- **Scribbles are the content.** The AI rewrites wording only. It never answers questions or adds facts (see `lib/refine/prompt.ts`), and code guarantees no scribble is dropped (`lib/doc.ts`). It keeps your punctuation of doubt ("??"), emphasis, attribution ("he says") and numbers as written.
+- **Pointing scribbles** ("lol that", "this") keep your words. What was being said at that moment (from the transcript's last ~20 seconds) is shown beside the note in muted italics as "(re: …)", never mixed in. Settings → "Show what pointing scribbles refer to" turns it off, including in exports. (Chosen by the author during review; Frank to confirm.)
+- **Corrections** ("actually it was 2B not 20B") replace what they correct and end with "(Corrected from …)".
 - **Notes stay put.** Only new or edited scribbles are sent. An existing note is rewritten only when one of its scribbles changes, or when a new scribble continues it.
 - **Auto-forge** runs 4 seconds after the scribbles stop changing. It is on by default and can be turned off in Settings.
-- A scribble is stamped with the video time at the moment you **start typing** it, not when you press Enter.
+- A scribble is stamped with the video time at the moment you **start typing** it, not when you press Enter. Clicking a time chip jumps to **5 seconds before** that moment, because people write just after hearing something.
 - Voice input pauses the video, and you resume it yourself.
 - Deleting a scribble can be undone from the toast.
 - Exports include the notes with time links and, below them, the raw scribbles.

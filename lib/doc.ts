@@ -80,8 +80,8 @@ export function forgedIds(scribbles: Scribble[], doc: LivingDocument): Set<strin
 const CONTEXT_BEFORE_S = 75;
 const CONTEXT_AFTER_S = 10;
 const CONTEXT_MAX_CHARS = 1400;
-const RECENT_BEFORE_S = 20;
-const RECENT_AFTER_S = 3;
+const RECENT_BEFORE_S = 15;
+const RECENT_AFTER_S = 0;
 
 /**
  * The transcript around one moment: by default the ~75 seconds before the
@@ -187,7 +187,9 @@ export function applyRefine(
     const target = item.mergeInto ? noteById.get(item.mergeInto) : undefined;
     if (target) {
       target.text = text;
-      target.context = context ?? target.context;
+      // The merged note's aside is whatever the model gives now; an old
+      // aside may no longer fit the new text.
+      target.context = context;
       target.sources = { ...target.sources, ...sources };
       target.unrefined = false;
       if (item.topic && cleanTopic(item.topic)) target.topic = cleanTopic(item.topic);
@@ -277,7 +279,7 @@ export function toMarkdown(
     if (section.topic) lines.push(`## ${section.topic}`, "");
     for (const { note, times } of section.notes) {
       const stamps = times.map((t) => `[${formatTime(t)}](${videoLink(video.id, t)})`).join(", ");
-      const context = note.context && options.includeContext !== false ? ` *(re: ${note.context})*` : "";
+      const context = note.context && options.includeContext !== false ? ` *(re: “${note.context}”)*` : "";
       lines.push(`- ${note.text}${context}${stamps ? ` (${stamps})` : ""}`);
     }
     lines.push("");

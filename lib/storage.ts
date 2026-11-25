@@ -22,7 +22,7 @@ export function defaultSettings(): Settings {
     models: { ...DEFAULT_MODELS },
     apiKeys: { anthropic: "", openai: "" },
     autoForge: true,
-    showContext: true,
+    showContext: false,
   };
 }
 

@@ -117,5 +117,15 @@ test("context stays apart from the user's words, in the doc and the export", () 
   assert.equal(notes[0].text, "Lol, that.");
   assert.equal(notes[0].context, "naming the bank after a robbed mountain");
   const md = toMarkdown({ notes, updatedAt: 1 }, [s("a", 62, "lol that")], { id: "abcdefghijk", title: "T" });
-  assert.match(md, /- Lol, that\. \*\(re: naming the bank after a robbed mountain\)\* \(\[1:02\]/);
+  assert.match(md, /- Lol, that\. \*\(re: “naming the bank after a robbed mountain”\)\* \(\[1:02\]/);
+});
+
+test("a context quote survives only if it was really said just before", async () => {
+  const { verifyContext } = await import("@/lib/refine/run");
+  const pending = [{ id: "a", time: 62, text: "lol that", context: "", recent: "And the bank is named after the Lonely Mountain, in The Hobbit." }];
+  const item = { sourceIds: ["a"], text: "Lol, that.", topic: "Bank", mergeInto: null };
+  const [kept] = verifyContext([{ ...item, context: "the bank is named after the lonely mountain in The Hobbit" }], pending);
+  assert.equal(kept.context, "the bank is named after the lonely mountain in The Hobbit");
+  const [dropped] = verifyContext([{ ...item, context: "naming the bank after a robbed mountain" }], pending);
+  assert.equal(dropped.context, null);
 });

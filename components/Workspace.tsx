@@ -347,6 +347,8 @@ export function Workspace() {
     setSession((s) => (s ? { ...s, scribbles: s.scribbles.map((x) => (x.id === id ? { ...x, text } : x)) } : s));
   }, []);
 
+  const undoRef = useRef<(() => void) | null>(null);
+
   const deleteScribble = useCallback(
     (id: string) => {
       const s = sessionRef.current;
@@ -359,16 +361,19 @@ export function Workspace() {
       const notes = s.doc.notes.filter((n) => Object.keys(n.sources).some((sid) => remaining.has(sid)));
       setSession({ ...s, scribbles: scribblesLeft, doc: { ...s.doc, notes } });
       setHoverIds(new Set());
-      show({
-        text: "Scribble deleted",
-        action: {
-          label: "Undo",
-          run: () =>
-            setSession((cur) =>
-              cur && cur.video.id === s.video.id ? { ...cur, scribbles: snapshot.scribbles, doc: snapshot.doc } : cur,
-            ),
-        },
-      });
+      // The row is gone; don't leave keyboard focus on nothing.
+      requestAnimationFrame(() => composerRef.current?.focus());
+      const undo = () => {
+        undoRef.current = null;
+        setSession((cur) =>
+          cur && cur.video.id === s.video.id ? { ...cur, scribbles: snapshot.scribbles, doc: snapshot.doc } : cur,
+        );
+      };
+      undoRef.current = undo;
+      setTimeout(() => {
+        if (undoRef.current === undo) undoRef.current = null;
+      }, 10000);
+      show({ text: "Scribble deleted", action: { label: "Undo", run: undo } });
     },
     [show],
   );
@@ -422,6 +427,9 @@ export function Workspace() {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
         if (canForge) forge("new");
+      } else if (!typing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && undoRef.current) {
+        e.preventDefault();
+        undoRef.current();
       } else if (!typing && e.key === "/" && session) {
         e.preventDefault();
         composerRef.current?.focus();
@@ -434,9 +442,14 @@ export function Workspace() {
   /* ---------- settings ---------- */
 
   const updateSettings = useCallback((s: Settings) => {
+    const before = settingsRef.current;
+    const keyChanged =
+      s.provider !== before.provider ||
+      s.models[s.provider] !== before.models[before.provider] ||
+      s.apiKeys[s.provider] !== before.apiKeys[before.provider];
     setSettings(s);
     saveSettings(s);
-    setForgeError(null);
+    if (keyChanged) setForgeError(null);
   }, []);
 
   /* ---------- render ---------- */
@@ -540,7 +553,7 @@ export function Workspace() {
         <button
           type="button"
           onClick={closeVideo}
-          className="font-pixel text-[18px] text-ink transition-colors hover:text-accent"
+          className="shrink-0 font-pixel text-[18px] text-ink transition-colors hover:text-accent"
           style={{ transitionDuration: "var(--duration)" }}
           title="Back to the start page"
         >
@@ -551,22 +564,24 @@ export function Workspace() {
           <span className="text-ink">{session.video.title ?? "Loading video…"}</span>
           {session.video.author && <span className="text-faint"> · {session.video.author}</span>}
         </p>
-        <button type="button" className="btn btn-secondary" onClick={closeVideo}>
-          Change video
+        <button type="button" className="btn btn-secondary shrink-0" onClick={closeVideo}>
+          <span className="hidden sm:inline">Change video</span>
+          <span className="sm:hidden">Change</span>
         </button>
         {(!hasKey || forgeError?.needsKey) && (
           <button
             type="button"
-            className={`btn btn-secondary ${hasKey ? "text-danger" : "text-accent"}`}
+            className={`btn btn-secondary shrink-0 ${hasKey ? "text-danger" : "text-accent"}`}
             onClick={() => setSettingsOpen(true)}
+            aria-label={hasKey ? "Fix API key" : "Add API key"}
           >
             <KeyIcon size={15} />
-            {hasKey ? "Fix API key" : "Add API key"}
+            <span className="hidden sm:inline">{hasKey ? "Fix API key" : "Add API key"}</span>
           </button>
         )}
         <button
           type="button"
-          className="btn-icon"
+          className="btn-icon shrink-0"
           onClick={() => setSettingsOpen(true)}
           title="Settings"
           aria-label="Settings"
@@ -578,7 +593,7 @@ export function Workspace() {
       <main className="min-h-0 flex-1 px-2 pb-2">
         {narrow ? (
           <div className="flex h-full flex-col gap-2 overflow-y-auto">
-            <div className="aspect-video w-full shrink-0">{player}</div>
+            <div className="sticky top-0 z-10 aspect-video w-full shrink-0 bg-canvas">{player}</div>
             <div className="h-[380px] shrink-0">{scribblesPanel}</div>
             <div className="h-[560px] shrink-0">{docPanel}</div>
             <div className="h-[360px] shrink-0">{transcriptPanel}</div>

@@ -47,6 +47,29 @@ async function callOnce(req: RefineRequest, apiKey: string) {
   return { items: parsed.data.items as RefineItem[], moves: parsed.data.moves as TopicMove[], usage: result.usage };
 }
 
+/** Lowercase letters and digits only, single-spaced: for comparing quotes. */
+function normalize(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+/**
+ * Keep a context quote only if it appears word for word in what was said
+ * just before one of its scribbles. A paraphrase or a guess about another
+ * moment is dropped, so an aside is always something that was really said.
+ */
+export function verifyContext(items: RefineItem[], pending: RefineRequest["pending"]): RefineItem[] {
+  const recentById = new Map(pending.map((p) => [p.id, normalize(p.recent)]));
+  return items.map((item) => {
+    const quote = normalize((item.context ?? "").replace(/^\s*(re:)\s*/i, ""));
+    if (!quote) return { ...item, context: null };
+    const found = item.sourceIds.some((id) => recentById.get(id)?.includes(quote));
+    return found ? item : { ...item, context: null };
+  });
+}
+
 function coveredIds(items: RefineItem[], allowed: Set<string>): Set<string> {
   const covered = new Set<string>();
   for (const item of items) for (const id of item.sourceIds) if (allowed.has(id)) covered.add(id);
@@ -79,7 +102,7 @@ export async function refine(req: RefineRequest, apiKey: string): Promise<Refine
 
   const noteIds = new Set(req.notes.map((n) => n.id));
   return {
-    items,
+    items: verifyContext(items, req.pending),
     moves: first.moves.filter((m) => noteIds.has(m.noteId) && m.topic.trim()),
     missing: req.pending.filter((p) => !covered.has(p.id)).map((p) => p.id),
     usage,

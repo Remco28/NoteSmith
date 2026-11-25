@@ -78,6 +78,16 @@ export function DocPanel({
   onOpenSettings: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  // Show text labels on the toolbar only when the panel itself is wide enough.
+  const panelRef = useRef<HTMLElement>(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWide(el.clientWidth >= 640));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const confirmRef = useRef<HTMLDivElement>(null);
   const parts = sections(doc, scribbles);
   const hasNotes = doc.notes.length > 0;
@@ -111,7 +121,7 @@ export function DocPanel({
   }
 
   return (
-    <section className="panel relative" aria-label="Living Document">
+    <section ref={panelRef} className="panel relative" aria-label="Living Document">
       <header className="panel-head">
         <h2 className="panel-title whitespace-nowrap">Living Document</h2>
         <div className="hidden min-w-0 items-center gap-2 truncate sm:flex" aria-live="polite">
@@ -131,7 +141,7 @@ export function DocPanel({
         <div className="relative" ref={confirmRef}>
           <button
             type="button"
-            className="btn-icon xl:w-auto xl:gap-1.5 xl:px-2 xl:text-body"
+            className={`btn-icon ${wide ? "w-auto gap-1.5 px-2 text-body" : ""}`}
             onClick={() => setConfirming((v) => !v)}
             disabled={forging || scribbles.length === 0}
             title="Re-forge everything from scratch…"
@@ -139,7 +149,7 @@ export function DocPanel({
             aria-expanded={confirming}
           >
             <RefreshIcon size={16} />
-            <span className="hidden xl:inline">Re-forge</span>
+            <span className={wide ? "" : "sr-only"}>Re-forge</span>
           </button>
           {confirming && (
             <div className="fade-in absolute right-0 top-10 z-20 w-72 rounded-md border border-border-strong bg-raised p-3 shadow-xl shadow-black/40">
@@ -167,25 +177,25 @@ export function DocPanel({
         </div>
         <button
           type="button"
-          className="btn-icon xl:w-auto xl:gap-1.5 xl:px-2 xl:text-body"
+          className={`btn-icon ${wide ? "w-auto gap-1.5 px-2 text-body" : ""}`}
           onClick={onCopy}
           disabled={!hasNotes}
           title="Copy as Markdown"
           aria-label="Copy as Markdown"
         >
           <CopyIcon size={16} />
-          <span className="hidden xl:inline">Copy</span>
+          <span className={wide ? "" : "sr-only"}>Copy</span>
         </button>
         <button
           type="button"
-          className="btn-icon xl:w-auto xl:gap-1.5 xl:px-2 xl:text-body"
+          className={`btn-icon ${wide ? "w-auto gap-1.5 px-2 text-body" : ""}`}
           onClick={onDownload}
           disabled={!hasNotes}
           title="Download as Markdown (.md)"
           aria-label="Download as Markdown"
         >
           <DownloadIcon size={16} />
-          <span className="hidden xl:inline">Download</span>
+          <span className={wide ? "" : "sr-only"}>Download</span>
         </button>
       </header>
 
@@ -246,9 +256,9 @@ export function DocPanel({
                           {showContext && note.context && (
                             <span
                               className="ml-1.5 font-ui text-body italic text-muted"
-                              title="What was being said at that moment, from the transcript. Not your words."
+                              title="Quoted from the transcript at that moment. Not your words."
                             >
-                              (re: {note.context})
+                              (re: &ldquo;{note.context}&rdquo;)
                             </span>
                           )}
                           {note.unrefined && (
@@ -267,7 +277,7 @@ export function DocPanel({
                                 className="time-chip"
                                 onClick={() => onSeek(Math.max(0, t - REWIND_S))}
                                 title={`Jump to just before ${formatTime(t)}`}
-                                aria-label={`Jump the video to ${formatTime(t)}`}
+                                aria-label={`Jump the video to just before ${formatTime(t)}`}
                               >
                                 {formatTime(t)}
                               </button>

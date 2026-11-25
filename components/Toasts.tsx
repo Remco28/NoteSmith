@@ -20,7 +20,7 @@ export function useToasts() {
     (toast: Omit<Toast, "id">) => {
       const id = next.current++;
       setToasts((t) => [...t.slice(-2), { ...toast, id }]);
-      setTimeout(() => dismiss(id), toast.action ? 7000 : 3500);
+      setTimeout(() => dismiss(id), toast.action ? 10000 : 3500);
     },
     [dismiss],
   );
@@ -43,6 +43,7 @@ export function Toasts({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: num
           {t.action && (
             <button
               type="button"
+              title={`${t.action.label} (Ctrl+Z)`}
               className="btn btn-secondary h-7 px-2"
               onClick={() => {
                 t.action!.run();

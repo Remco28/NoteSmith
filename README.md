@@ -7,7 +7,7 @@ Scribble while you watch a YouTube video. NoteSmith forges your rough scribbles 
 - **Transcript:** follows the video. Click any line to jump there.
 - **Export:** copy or download the notes as Markdown, with the raw scribbles below.
 
-It is not a summarizer. The model is told to treat each scribble as the content and the transcript as background only. It never answers your questions, and code (not the prompt) guarantees that no scribble is ever dropped.
+It is not a summarizer. The model is told to treat each scribble as the content and the transcript as background only. It never answers your questions, and code (not the prompt) guarantees that no scribble is ever dropped. When a scribble only points at something ("lol that"), the note keeps your words and shows what was being said beside it, marked "(re: …)"; you can turn that off in Settings.
 
 ## Run it
 
@@ -50,7 +50,7 @@ npm test           # unit tests for the document rules
 npm run eval       # note-quality eval (needs ANTHROPIC_API_KEY in .env.local)
 ```
 
-The eval plays the scribbles in `eval/palmer-luckey.json` through the real refine step in rounds, as the app would, then edits one. It checks every note, both with simple rules and with a judge model (Claude Sonnet 5.5) that flags notes that add, drop or answer things. Reports are written to `eval/out/`. Run it after any change to the prompt.
+The eval plays the scribbles in `eval/palmer-luckey.json` (or `eval/tricky.json`, the hard cases testers found: pointing words, corrections, doubt) through the real refine step in rounds, as the app would, then edits one. It checks every note, both with simple rules and with a judge model (Claude Sonnet 5.5) that flags notes that add, drop or answer things. Reports are written to `eval/out/`. Run it after any change to the prompt.
 
 ## Known limits
 

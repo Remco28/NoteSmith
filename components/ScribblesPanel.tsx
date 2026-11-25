@@ -81,7 +81,7 @@ function ScribbleRow({
         className="time-chip mt-px"
         onClick={() => onSeek(Math.max(0, scribble.time - 5))}
         title={`Jump to just before ${formatTime(scribble.time)}`}
-        aria-label={`Jump the video to ${formatTime(scribble.time)}, where you wrote this`}
+        aria-label={`Jump the video to just before ${formatTime(scribble.time)}, where you wrote this`}
       >
         {formatTime(scribble.time)}
       </button>
@@ -115,7 +115,7 @@ function ScribbleRow({
         <button
           ref={textRef}
           type="button"
-          aria-label={`Edit scribble: ${scribble.text}`}
+          aria-label={`Scribble at ${formatTime(scribble.time)}: ${scribble.text}. Press Enter to edit.`}
           className="min-w-0 flex-1 cursor-text whitespace-pre-wrap break-words text-left font-mono text-body text-ink"
           onClick={() => {
             setDraft(scribble.text);
@@ -142,7 +142,7 @@ function ScribbleRow({
         }}
         disabled={editing}
         title="Edit scribble"
-        aria-label="Edit scribble"
+        aria-label={`Edit scribble: ${scribble.text}`}
       >
         <PencilIcon size={14} />
       </button>
@@ -151,7 +151,7 @@ function ScribbleRow({
         className="btn-icon -my-1 h-7 w-7 opacity-60 group-hover:opacity-100 focus-visible:opacity-100"
         onClick={() => onDelete(scribble.id)}
         title="Delete scribble"
-        aria-label="Delete scribble"
+        aria-label={`Delete scribble: ${scribble.text}`}
       >
         <TrashIcon size={14} />
       </button>
@@ -301,7 +301,11 @@ export function ScribblesPanel({
               {formatTime(shownTime)}
             </span>
             <span className="truncate text-caption text-faint">
-              {speech.listening ? "Click stop when you're done" : "Enter to add · Shift+Enter for a new line"}
+              {speech.listening ? (
+                "Click stop when you're done"
+              ) : (
+                <span className="hidden sm:inline">Enter to add · Shift+Enter for a new line</span>
+              )}
             </span>
             <div className="flex-1" />
             <button

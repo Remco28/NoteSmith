@@ -169,10 +169,15 @@ export function TranscriptPanel({
           onWheel={stopFollowing}
           onTouchMove={stopFollowing}
           onKeyDown={moveFocus}
+          onFocus={(e) => {
+            // Pin the Tab stop to the focused line so playback can't move it.
+            const row = (e.target as HTMLElement).dataset?.row;
+            if (row !== undefined) setCursor(Number(row));
+          }}
           onBlur={(e) => {
             if (!listRef.current?.contains(e.relatedTarget as Node)) setCursor(null);
           }}
-          role="list"
+          role="group"
           aria-label="Transcript lines. Use the arrow keys to move, Enter to jump the video there."
         >
           {lines.map((line, i) => (
