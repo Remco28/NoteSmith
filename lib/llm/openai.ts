@@ -54,7 +54,7 @@ function toLlmError(error: unknown, model: string): LlmError {
     return new LlmError("This OpenAI API key isn't allowed to use that model.", 403);
   }
   if (error instanceof OpenAI.NotFoundError) {
-    return new LlmError(`OpenAI doesn't recognise the model "${model}". Check it in Settings.`, 404);
+    return new LlmError(`OpenAI doesn't recognize the model "${model}". Check it in Settings.`, 404);
   }
   if (error instanceof OpenAI.RateLimitError) {
     return new LlmError("OpenAI's rate limit was hit. Wait a moment and forge again.", 429);

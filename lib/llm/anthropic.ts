@@ -64,7 +64,7 @@ function toLlmError(error: unknown, model: string): LlmError {
     return new LlmError("This Anthropic API key isn't allowed to use that model.", 403);
   }
   if (error instanceof Anthropic.NotFoundError) {
-    return new LlmError(`Anthropic doesn't recognise the model "${model}". Check it in Settings.`, 404);
+    return new LlmError(`Anthropic doesn't recognize the model "${model}". Check it in Settings.`, 404);
   }
   if (error instanceof Anthropic.RateLimitError) {
     return new LlmError("Anthropic's rate limit was hit. Wait a moment and forge again.", 429);

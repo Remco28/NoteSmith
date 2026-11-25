@@ -3,33 +3,19 @@
  *
  * Refines new scribbles into notes. The caller's own API key comes in the
  * `x-api-key` header and is used for this request only; it is never stored
- * or logged. Without one, the server's own key (ANTHROPIC_API_KEY /
- * OPENAI_API_KEY) is used, but only for requests to localhost, or when
- * NOTESMITH_SHARE_SERVER_KEY=true. That keeps a publicly hosted copy from
- * spending the host's credits.
+ * or logged. Without one, the server's own key may be used (see
+ * lib/server-key.ts for when).
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { LlmError } from "@/lib/llm/types";
 import { MAX_PENDING_PER_REQUEST, refine } from "@/lib/refine/run";
+import { serverKeyFor } from "@/lib/server-key";
 import type { Provider, RefineRequest } from "@/types/notesmith";
 
 export const maxDuration = 120;
 
 const PROVIDERS: Provider[] = ["anthropic", "openai"];
-const SERVER_KEYS: Record<Provider, string | undefined> = {
-  anthropic: process.env.ANTHROPIC_API_KEY,
-  openai: process.env.OPENAI_API_KEY,
-};
-
-function isLocal(request: NextRequest): boolean {
-  const host = request.nextUrl.hostname;
-  return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
-}
-
-function serverKeyAllowed(request: NextRequest): boolean {
-  return process.env.NOTESMITH_SHARE_SERVER_KEY === "true" || isLocal(request);
-}
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -78,7 +64,7 @@ export async function POST(request: NextRequest) {
   };
 
   const userKey = request.headers.get("x-api-key")?.trim();
-  const apiKey = userKey || (serverKeyAllowed(request) ? SERVER_KEYS[provider] : undefined);
+  const apiKey = userKey || serverKeyFor(request, provider);
   if (!apiKey) {
     const name = provider === "anthropic" ? "Anthropic" : "OpenAI";
     return bad(`Add your ${name} API key in Settings to start forging.`, 401);

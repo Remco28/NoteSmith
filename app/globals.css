@@ -2,27 +2,256 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * NoteSmith design values. Every colour, size and duration the interface
+ * uses is named here or in tailwind.config.ts (which reads these). Decisions
+ * behind them are in docs/DESIGN.md.
+ */
+:root {
+  /* Neutrals: one warm family, darkest to lightest. */
+  --canvas: #14110e; /* backdrop behind panels */
+  --surface: #1d1915; /* panels */
+  --raised: #26211b; /* fields, hovered rows, menus */
+  --sunken: #100d0b; /* the scribble composer, video well */
+  --border: #352d25;
+  --border-strong: #4a3f34;
+
+  --ink: #ede5da; /* main text */
+  --muted: #a6998a; /* secondary text */
+  --faint: #776b5e; /* captions, placeholders, disabled */
+
+  /* Ember: the one accent. */
+  --accent: #f0883a;
+  --accent-hover: #ff9d55;
+  --accent-ink: #1a0f06; /* text on accent */
+  --accent-soft: rgba(240, 136, 58, 0.14);
+  --accent-line: rgba(240, 136, 58, 0.45);
+
+  --danger: #e5534b;
+  --danger-soft: rgba(229, 83, 75, 0.14);
+  --success: #8bbf6a;
+
+  --duration: 120ms;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+
+  color-scheme: dark;
+}
+
 @layer base {
+  html,
   body {
-    @apply bg-gray-50 text-gray-900;
+    height: 100%;
+  }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-ui), system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--accent-line);
+    color: var(--ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  /* Thin, warm scrollbars. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
   }
 }
 
 @layer components {
-  .notesmith-markdown ul,
-  .notesmith-markdown ol {
-    @apply my-4;
+  /* Buttons: one primary look, one secondary look, one icon-only look. */
+  .btn {
+    @apply inline-flex h-8 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-3 text-body font-medium transition-colors;
+    transition-duration: var(--duration);
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply bg-accent text-accent-ink enabled:hover:bg-accent-hover enabled:active:brightness-95 disabled:bg-raised disabled:text-faint;
+  }
+  .btn-secondary:disabled {
+    @apply text-faint;
+  }
+  .btn-secondary {
+    @apply border border-border bg-raised text-ink enabled:hover:border-border-strong enabled:hover:bg-[#2e2820] enabled:active:bg-raised;
+  }
+  .btn-icon {
+    @apply inline-flex h-8 w-8 select-none items-center justify-center rounded-sm text-muted transition-colors enabled:hover:bg-raised enabled:hover:text-ink enabled:active:bg-border disabled:cursor-not-allowed disabled:opacity-45;
+    transition-duration: var(--duration);
   }
 
-  .notesmith-markdown li + li {
-    @apply mt-2;
+  .field {
+    @apply h-8 w-full rounded-sm border border-border bg-sunken px-2.5 text-body text-ink placeholder:text-faint transition-colors hover:border-border-strong focus:border-accent focus:outline-none;
+    transition-duration: var(--duration);
   }
 
-  .notesmith-markdown p + p {
-    @apply mt-3;
+  .panel {
+    @apply flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border bg-surface;
+  }
+  .panel-head {
+    @apply flex h-11 shrink-0 items-center gap-2 border-b border-border px-3;
+  }
+  .panel-title {
+    @apply text-title font-semibold tracking-tight text-ink;
   }
 
-  .notesmith-markdown blockquote {
-    @apply border-l-4 border-gray-200 pl-4 text-gray-600;
+  .time-chip {
+    @apply inline-flex h-5 shrink-0 items-center rounded-[4px] bg-raised px-1.5 font-mono text-caption tabular-nums text-muted transition-colors hover:bg-accent-soft hover:text-accent;
+    transition-duration: var(--duration);
   }
+
+  .kbd {
+    @apply rounded-[4px] border border-border px-1 font-mono text-[11px] text-faint;
+  }
+}
+
+/* ---------- Motion ---------- */
+
+/* Freshly forged notes glow like hot metal, then cool. */
+@keyframes cool {
+  0% {
+    background-color: rgba(240, 136, 58, 0.28);
+    box-shadow: 0 0 0 1px rgba(255, 180, 110, 0.5);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 1px transparent;
+  }
+}
+.just-forged {
+  animation: cool 1.6s ease-out;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-in {
+  animation: rise var(--duration) ease-out;
+}
+
+/* The smith: two frames swapped in steps. */
+@keyframes hammer-a {
+  0%,
+  49.9% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes hammer-b {
+  0%,
+  49.9% {
+    opacity: 0;
+  }
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+.smith-working .frame-raised {
+  animation: hammer-a 0.7s infinite;
+}
+.smith-working .frame-strike {
+  animation: hammer-b 0.7s infinite;
+}
+
+@keyframes spark {
+  0%,
+  50% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  52% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.6);
+  }
+}
+.smith-working .spark {
+  animation: spark 0.7s infinite ease-out;
+}
+
+/* Embers drifting up the Living Document's edge while it forges. */
+@keyframes ember {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-140px) translateX(var(--drift));
+  }
+}
+.ember {
+  animation: ember 2.4s infinite ease-out;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.pulse-dot {
+  animation: pulse-dot 1.4s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .just-forged,
+  .fade-in,
+  .ember,
+  .pulse-dot,
+  .smith-working .spark {
+    animation: none !important;
+  }
+  .smith-working .frame-raised {
+    animation: none !important;
+    opacity: 0;
+  }
+  .smith-working .frame-strike {
+    animation: none !important;
+    opacity: 1;
+  }
+}
+
+/* Notes: refined text set in the document face. */
+.note-text strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.note-text em {
+  font-style: italic;
+}
+.note-text code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.9em;
+  background: var(--raised);
+  padding: 0 4px;
+  border-radius: 4px;
 }
