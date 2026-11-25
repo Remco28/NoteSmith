@@ -1,17 +1,13 @@
 /**
- * Shared domain errors
- */
-
-/**
- * Thrown when a YouTube video has no captions available,
- * or when caption retrieval fails in a way that cannot be recovered.
+ * Thrown when a YouTube video has no usable captions. The message is shown
+ * to the user as-is.
  */
 export class TranscriptUnavailableError extends Error {
-  constructor(videoId: string, reason?: string) {
-    const message = reason
-      ? `Transcript unavailable for video ${videoId}: ${reason}`
-      : `Transcript unavailable for video ${videoId}. NoteSmith supports captioned YouTube videos only.`;
-    super(message);
+  constructor(
+    public readonly videoId: string,
+    reason = "No captions are available for this video.",
+  ) {
+    super(reason);
     this.name = "TranscriptUnavailableError";
   }
 }

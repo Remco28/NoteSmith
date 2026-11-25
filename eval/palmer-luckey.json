@@ -1,0 +1,26 @@
+{
+  "video": { "id": "QARxiqCkJF4", "title": "Palmer Luckey on War 2.0", "author": "New York Times Events" },
+  "note": "Messy scribbles in the style of the real user, written against the transcript. 'batch' says which forging round each one arrives in. 'editTo' re-tests a scribble after it is edited.",
+  "scribbles": [
+    { "id": "s01", "time": 24, "batch": 1, "text": "anduril 90B?? named after LOTR sword" },
+    { "id": "s02", "time": 62, "batch": 1, "text": "bank = erebor lol. post dragon" },
+    { "id": "s03", "time": 88, "batch": 1, "text": "genetically engineered military dogs??? wtf" },
+    { "id": "s04", "time": 125, "batch": 1, "text": "jd vance in dc for outages, cyber war?? playstn down too" },
+    { "id": "s05", "time": 178, "batch": 1, "text": "north korea using AI to hack for money. attack vs defense mismatch. is this actually true or hype" },
+    { "id": "s06", "time": 226, "batch": 1, "text": "missile base sawzall door 10 min haha" },
+    { "id": "s07", "time": 238, "batch": 1, "text": "3 days water 3 days food. should I actually do this" },
+    { "id": "s08", "time": 914, "batch": 1, "text": "state dept called ukraine corrupt? when was this" },
+    { "id": "s09", "time": 1000, "batch": 2, "text": "starlink ukraine thing - elon slowed it down? look up" },
+    { "id": "s10", "time": 1905, "batch": 2, "text": "nuclear testing bring back?? why" },
+    { "id": "s11", "time": 2450, "batch": 2, "text": "floating platforms - ore processing, refining, desal offshore. nimby workaround. kinda smart" },
+    { "id": "s12", "time": 2480, "batch": 2, "text": "thinks most AI will run locally. agree" },
+    { "id": "s13", "time": 2590, "batch": 3, "text": "600k H200 sitting in port, china wont allow import" },
+    { "id": "s14", "time": 2632, "batch": 3, "text": "wait what happened to jensen??" },
+    { "id": "s15", "time": 2645, "batch": 3, "text": "so basically he's saying china is happy jensen is gone because jensen was on the side of the chinese ai companies not the chinese government which is kind of a weird take and im not sure it holds up" },
+    { "id": "s16", "time": 2660, "batch": 3, "text": "paper means nothing, relationships matter" },
+    { "id": "s17", "time": 2728, "batch": 3, "text": "psionic powers analogy lmao" },
+    { "id": "s18", "time": 2778, "batch": 3, "text": "fired over 9k trump donation. def still bitter", "editTo": "fired from facebook over 9k trump donation in 2016. def still bitter about it" },
+    { "id": "s19", "time": 2790, "batch": 3, "text": "Nvidia" },
+    { "id": "s20", "time": 2795, "batch": 3, "text": "palmer lucky" }
+  ]
+}

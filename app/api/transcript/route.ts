@@ -1,40 +1,34 @@
 /**
- * GET /api/transcript?videoId=XXX
+ * GET /api/transcript?videoId=XXX&lang=en
  *
- * Server-side transcript retrieval endpoint.
- * Returns normalized transcript segments for a YouTube video.
+ * Returns the video's captions (as segments in seconds) and its title.
+ * 422 means the video has no usable captions.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTranscript } from "@/lib/transcript/adapter";
+import { fetchTranscript, fetchVideoInfo } from "@/lib/transcript/adapter";
 import { TranscriptUnavailableError } from "@/lib/errors";
 import { extractVideoId } from "@/lib/utils/youtube";
 
 export async function GET(request: NextRequest) {
-  const videoId = extractVideoId(request.nextUrl.searchParams.get("videoId") || "");
-
+  const params = request.nextUrl.searchParams;
+  const videoId = extractVideoId(params.get("videoId") || "");
   if (!videoId) {
-    return NextResponse.json(
-      { error: "Missing or invalid videoId parameter" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "That doesn't look like a YouTube link." }, { status: 400 });
   }
+  const lang = (params.get("lang") || "").match(/^[a-z]{2,3}/i)?.[0]?.toLowerCase();
 
+  const infoPromise = fetchVideoInfo(videoId);
   try {
-    const segments = await fetchTranscript(videoId);
-    return NextResponse.json({ segments });
+    const { segments, lang: found } = await fetchTranscript(videoId, lang);
+    const info = await infoPromise;
+    return NextResponse.json({ segments, lang: found, ...info });
   } catch (err) {
+    const info = await infoPromise;
     if (err instanceof TranscriptUnavailableError) {
-      return NextResponse.json(
-        { error: err.message },
-        { status: 422 }
-      );
+      return NextResponse.json({ error: err.message, ...info }, { status: 422 });
     }
-    // Unexpected error — surface as 500 so the client knows something broke
-    console.error("[transcript route]", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("[transcript]", err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: "Couldn't load the transcript. Try again." }, { status: 500 });
   }
 }

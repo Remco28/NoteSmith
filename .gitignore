@@ -30,3 +30,7 @@ pnpm-debug.log*
 
 # typescript
 *.tsbuildinfo
+
+# eval output and cached transcripts
+/eval/out/
+/eval/.cache/
