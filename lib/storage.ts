@@ -22,6 +22,7 @@ export function defaultSettings(): Settings {
     models: { ...DEFAULT_MODELS },
     apiKeys: { anthropic: "", openai: "" },
     autoForge: true,
+    showContext: true,
   };
 }
 
@@ -68,6 +69,7 @@ export function loadSettings(): Settings {
     models: { ...base.models, ...(saved.models ?? {}) },
     apiKeys: { ...base.apiKeys, ...(saved.apiKeys ?? {}) },
     autoForge: saved.autoForge ?? base.autoForge,
+    showContext: saved.showContext ?? base.showContext,
   };
 }
 

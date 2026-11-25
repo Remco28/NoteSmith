@@ -99,7 +99,8 @@ ${scribbleText}
 Transcript just before (for context only):
 ${context}
 
-Note: "${note.text}"   (topic: "${note.topic}")
+Note: "${note.text}"   (topic: "${note.topic}")${note.context ? `
+Shown beside the note, visibly marked as transcript context rather than the viewer's words: "(re: ${note.context})". This is allowed only for a scribble that points at something without naming it ("lol that", "this", "wait what"), and only if it accurately says what was being said in the seconds before the scribble. Judge it on that.` : ""}
 
 Judge the note strictly. List each concrete problem in a few words. verdict: "good" (no problems), "minor" (small wording issue a user would barely notice), "bad" (adds or drops content, answers a question, removes doubt, or is much longer than needed).`;
 
@@ -197,7 +198,7 @@ async function main() {
       else if (v?.verdict === "minor") minor++;
       else if (v?.verdict === "bad") bad++;
       for (const src of srcs) log.push(`- scribble ${formatTime(src.time)}: ${src.text}`);
-      log.push(`  - **note:** ${note.text}`);
+      log.push(`  - **note:** ${note.text}${note.context ? ` *(re: ${note.context})*` : ""}`);
       if (v) log.push(`  - judge: **${v.verdict}**${v.problems.length ? ` (${v.problems.join("; ")})` : ""}`);
       if (autoFlags.length) log.push(`  - flags: ${autoFlags.join("; ")}`);
       log.push("");

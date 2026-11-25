@@ -6,6 +6,9 @@ import type { LivingDocument, Scribble } from "@/types/notesmith";
 import { AlertIcon, CopyIcon, DownloadIcon, HammerIcon, RefreshIcon } from "./icons";
 import { Smith } from "./Smith";
 
+/** Jumping to a note's moment starts a few seconds early: people write after hearing. */
+const REWIND_S = 5;
+
 /** Inline markdown: **bold**, *italic*, `code`. Everything else is plain text. */
 function renderInline(text: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -44,6 +47,7 @@ export function DocPanel({
   autoForge,
   freshIds,
   staleIds,
+  showContext,
   highlightIds,
   onForge,
   onReforgeAll,
@@ -63,6 +67,7 @@ export function DocPanel({
   autoForge: boolean;
   freshIds: Set<string>;
   staleIds: Set<string>;
+  showContext: boolean;
   highlightIds: Set<string>;
   onForge: () => void;
   onReforgeAll: () => void;
@@ -108,8 +113,8 @@ export function DocPanel({
   return (
     <section className="panel relative" aria-label="Living Document">
       <header className="panel-head">
-        <h2 className="panel-title">Living Document</h2>
-        <div className="flex min-w-0 items-center gap-2" aria-live="polite">
+        <h2 className="panel-title whitespace-nowrap">Living Document</h2>
+        <div className="hidden min-w-0 items-center gap-2 truncate sm:flex" aria-live="polite">
           {status}
         </div>
         <div className="flex-1" />
@@ -121,12 +126,12 @@ export function DocPanel({
           title="Refine new and edited scribbles now (Ctrl+Enter)"
         >
           <HammerIcon size={15} />
-          Forge now
+          {forging ? "Forging…" : "Forge now"}
         </button>
         <div className="relative" ref={confirmRef}>
           <button
             type="button"
-            className="btn-icon"
+            className="btn-icon xl:w-auto xl:gap-1.5 xl:px-2 xl:text-body"
             onClick={() => setConfirming((v) => !v)}
             disabled={forging || scribbles.length === 0}
             title="Re-forge everything from scratch…"
@@ -134,6 +139,7 @@ export function DocPanel({
             aria-expanded={confirming}
           >
             <RefreshIcon size={16} />
+            <span className="hidden xl:inline">Re-forge</span>
           </button>
           {confirming && (
             <div className="fade-in absolute right-0 top-10 z-20 w-72 rounded-md border border-border-strong bg-raised p-3 shadow-xl shadow-black/40">
@@ -161,23 +167,25 @@ export function DocPanel({
         </div>
         <button
           type="button"
-          className="btn-icon"
+          className="btn-icon xl:w-auto xl:gap-1.5 xl:px-2 xl:text-body"
           onClick={onCopy}
           disabled={!hasNotes}
           title="Copy as Markdown"
           aria-label="Copy as Markdown"
         >
           <CopyIcon size={16} />
+          <span className="hidden xl:inline">Copy</span>
         </button>
         <button
           type="button"
-          className="btn-icon"
+          className="btn-icon xl:w-auto xl:gap-1.5 xl:px-2 xl:text-body"
           onClick={onDownload}
           disabled={!hasNotes}
           title="Download as Markdown (.md)"
           aria-label="Download as Markdown"
         >
           <DownloadIcon size={16} />
+          <span className="hidden xl:inline">Download</span>
         </button>
       </header>
 
@@ -235,6 +243,14 @@ export function DocPanel({
                         <span className="mt-[11px] h-1.5 w-1.5 shrink-0 bg-accent" aria-hidden />
                         <div className="min-w-0 flex-1">
                           <span className="note-text font-doc text-doc text-ink">{renderInline(note.text)}</span>
+                          {showContext && note.context && (
+                            <span
+                              className="ml-1.5 font-ui text-body italic text-muted"
+                              title="What was being said at that moment, from the transcript. Not your words."
+                            >
+                              (re: {note.context})
+                            </span>
+                          )}
                           {note.unrefined && (
                             <span
                               className="ml-2 inline-flex h-5 items-center rounded-[4px] border border-border-strong px-1.5 align-[2px] text-caption text-muted"
@@ -249,8 +265,9 @@ export function DocPanel({
                                 key={i}
                                 type="button"
                                 className="time-chip"
-                                onClick={() => onSeek(t)}
-                                title={`Jump to ${formatTime(t)}`}
+                                onClick={() => onSeek(Math.max(0, t - REWIND_S))}
+                                title={`Jump to just before ${formatTime(t)}`}
+                                aria-label={`Jump the video to ${formatTime(t)}`}
                               >
                                 {formatTime(t)}
                               </button>

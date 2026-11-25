@@ -51,23 +51,30 @@ function currentIndex(lines: Line[], t: number): number {
 
 const Row = memo(function Row({
   line,
+  index,
   active,
+  tabbable,
   onSeek,
 }: {
   line: Line;
+  index: number;
   active: boolean;
+  tabbable: boolean;
   onSeek: (t: number) => void;
 }) {
   return (
     <button
       type="button"
       data-active={active || undefined}
+      data-row={index}
+      tabIndex={tabbable ? 0 : -1}
       onClick={() => onSeek(line.start)}
       className={`group flex w-full gap-3 border-l-2 px-3 py-1.5 text-left text-body transition-colors hover:bg-raised ${
         active ? "border-accent bg-accent-soft text-ink" : "border-transparent text-muted"
       }`}
       style={{ transitionDuration: "var(--duration)" }}
       title={`Jump to ${formatTime(line.start)}`}
+      aria-label={`${formatTime(line.start)}: ${line.text}`}
     >
       <span
         className={`w-11 shrink-0 pt-px font-mono text-caption tabular-nums ${
@@ -117,6 +124,24 @@ export function TranscriptPanel({
     if (!programmatic.current) setFollow(false);
   };
 
+  // The transcript is one Tab stop; arrow keys move between lines.
+  const [cursor, setCursor] = useState<number | null>(null);
+  const tabbableIndex = cursor ?? Math.max(idx, 0);
+  const moveFocus = (e: React.KeyboardEvent) => {
+    const keys: Record<string, number> = { ArrowDown: 1, ArrowUp: -1, PageDown: 10, PageUp: -10 };
+    let next: number | null = null;
+    const current = Number((document.activeElement as HTMLElement | null)?.dataset?.row ?? tabbableIndex);
+    if (e.key in keys) next = current + keys[e.key];
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = lines.length - 1;
+    if (next === null) return;
+    e.preventDefault();
+    next = Math.max(0, Math.min(lines.length - 1, next));
+    setCursor(next);
+    setFollow(false);
+    listRef.current?.querySelector<HTMLElement>(`[data-row="${next}"]`)?.focus();
+  };
+
   return (
     <section className="panel" aria-label="Transcript">
       <header className="panel-head">
@@ -125,7 +150,10 @@ export function TranscriptPanel({
         <button
           type="button"
           className="btn-icon w-auto gap-1.5 px-2 text-caption"
-          onClick={() => setFollow(true)}
+          onClick={() => {
+            setFollow(true);
+            setCursor(null);
+          }}
           disabled={follow || status !== "ready"}
           title="Keep the current line in view"
         >
@@ -140,12 +168,15 @@ export function TranscriptPanel({
           className="relative min-h-0 flex-1 overflow-y-auto py-1"
           onWheel={stopFollowing}
           onTouchMove={stopFollowing}
-          onKeyDown={(e) => {
-            if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"].includes(e.key)) stopFollowing();
+          onKeyDown={moveFocus}
+          onBlur={(e) => {
+            if (!listRef.current?.contains(e.relatedTarget as Node)) setCursor(null);
           }}
+          role="list"
+          aria-label="Transcript lines. Use the arrow keys to move, Enter to jump the video there."
         >
           {lines.map((line, i) => (
-            <Row key={i} line={line} active={i === idx} onSeek={onSeek} />
+            <Row key={i} index={i} line={line} active={i === idx} tabbable={i === tabbableIndex} onSeek={onSeek} />
           ))}
         </div>
       ) : (

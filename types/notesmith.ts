@@ -27,8 +27,13 @@ export interface Scribble {
 /** A refined note in the Living Document. */
 export interface Note {
   id: string;
-  /** Short inline markdown. */
+  /** Short inline markdown: the user's own thought, refined. */
   text: string;
+  /**
+   * What a pointing scribble ("lol that", "this") referred to, taken from the
+   * transcript. Shown apart from the user's words, never mixed into them.
+   */
+  context?: string;
   /** Topic heading this note sits under. Empty string means no heading. */
   topic: string;
   /** The scribbles this note was made from, with their text at that moment. */
@@ -51,6 +56,8 @@ export interface Settings {
   /** Keys live only in this browser. Empty means "use the server's key". */
   apiKeys: Record<Provider, string>;
   autoForge: boolean;
+  /** Show (and export) what pointing scribbles like "lol that" referred to. */
+  showContext: boolean;
 }
 
 export interface VideoInfo {
@@ -74,7 +81,10 @@ export interface PendingScribble {
   id: string;
   time: number;
   text: string;
+  /** Transcript from ~75 s before to just after: for spelling names. */
   context: string;
+  /** Only the ~20 s before: what a pointing word can refer to. */
+  recent: string;
 }
 
 /** An existing note, as the model sees it. */
@@ -99,6 +109,7 @@ export interface RefineItem {
   text: string;
   topic: string;
   mergeInto: string | null;
+  context: string | null;
 }
 
 /** Move an existing note to another topic. Its text never changes. */

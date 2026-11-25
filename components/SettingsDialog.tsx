@@ -134,7 +134,8 @@ export function SettingsDialog({
               </button>
             </div>
             <p className="mt-1.5 text-caption text-faint">
-              Kept only in this browser and sent with each forge request, never stored on the server.{" "}
+              Kept only in this browser. It&apos;s sent to {p.name} through this NoteSmith server with each forge
+              request, and never stored there. Clear the field and save to remove it.{" "}
               <a href={p.keyUrl} target="_blank" rel="noreferrer" className="text-muted underline hover:text-ink">
                 Get a key
               </a>
@@ -175,6 +176,21 @@ export function SettingsDialog({
               <span className="block text-body text-ink">Forge automatically</span>
               <span className="block text-caption text-faint">
                 Refine new scribbles a few seconds after you stop adding them.
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={draft.showContext}
+              onChange={(e) => setDraft({ ...draft, showContext: e.target.checked })}
+              className="mt-0.5 h-4 w-4 cursor-pointer accent-[var(--accent)]"
+            />
+            <span>
+              <span className="block text-body text-ink">Show what pointing scribbles refer to</span>
+              <span className="block text-caption text-faint">
+                For a scribble like &ldquo;lol that&rdquo;, show what was being said, taken from the transcript and
+                marked as such: (re: …). Your own words are never changed.
               </span>
             </span>
           </label>

@@ -18,6 +18,7 @@ const ItemSchema = z.object({
   mergeInto: z.string().nullable(),
   topic: z.string(),
   text: z.string(),
+  context: z.string().nullable().default(null),
 });
 const AnswerSchema = z.object({
   items: z.array(ItemSchema),

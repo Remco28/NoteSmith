@@ -18,7 +18,7 @@
 
   --ink: #ede5da; /* main text */
   --muted: #a6998a; /* secondary text */
-  --faint: #776b5e; /* captions, placeholders, disabled */
+  --faint: #978a7a; /* captions, placeholders, disabled; 4.7:1 or more on every surface */
 
   /* Ember: the one accent. */
   --accent: #f0883a;
@@ -105,7 +105,7 @@
   }
 
   .time-chip {
-    @apply inline-flex h-5 shrink-0 items-center rounded-[4px] bg-raised px-1.5 font-mono text-caption tabular-nums text-muted transition-colors hover:bg-accent-soft hover:text-accent;
+    @apply inline-flex h-6 shrink-0 items-center rounded-[4px] bg-raised px-1.5 font-mono text-caption tabular-nums text-muted transition-colors hover:bg-accent-soft hover:text-accent;
     transition-duration: var(--duration);
   }
 

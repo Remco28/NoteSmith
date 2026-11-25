@@ -80,14 +80,21 @@ export function forgedIds(scribbles: Scribble[], doc: LivingDocument): Set<strin
 const CONTEXT_BEFORE_S = 75;
 const CONTEXT_AFTER_S = 10;
 const CONTEXT_MAX_CHARS = 1400;
+const RECENT_BEFORE_S = 20;
+const RECENT_AFTER_S = 3;
 
 /**
- * The transcript around one moment: what was said in the ~75 seconds before
- * the scribble (what the user was reacting to) and a few seconds after.
+ * The transcript around one moment: by default the ~75 seconds before the
+ * scribble and a few seconds after.
  */
-export function transcriptAround(segments: TranscriptSegment[], time: number): string {
-  const from = time - CONTEXT_BEFORE_S;
-  const to = time + CONTEXT_AFTER_S;
+export function transcriptAround(
+  segments: TranscriptSegment[],
+  time: number,
+  before = CONTEXT_BEFORE_S,
+  after = CONTEXT_AFTER_S,
+): string {
+  const from = time - before;
+  const to = time + after;
   let text = segments
     .filter((s) => s.end >= from && s.start <= to)
     .map((s) => s.text.replace(/\s+/g, " ").trim())
@@ -107,6 +114,7 @@ export function toPending(scribbles: Scribble[], segments: TranscriptSegment[]):
     time: s.time,
     text: s.text.trim(),
     context: transcriptAround(segments, s.time),
+    recent: transcriptAround(segments, s.time, RECENT_BEFORE_S, RECENT_AFTER_S),
   }));
 }
 
@@ -129,6 +137,15 @@ function cleanText(text: string): string {
     .replace(/^\s*[-*•]\s+/, "") // a stray leading bullet
     .replace(/^#+\s+/, "") // a stray heading marker
     .trim();
+}
+
+function cleanContext(context: string | null | undefined): string | undefined {
+  const c = (context ?? "")
+    .trim()
+    .replace(/^[("']+|[)"']+$/g, "")
+    .replace(/^\s*(re:|context:)\s*/i, "")
+    .trim();
+  return c ? c.slice(0, 140) : undefined;
 }
 
 function cleanTopic(topic: string): string {
@@ -165,15 +182,18 @@ export function applyRefine(
 
     const sources: Record<string, string> = {};
     for (const id of ids) sources[id] = pendingById.get(id)!.text;
+    const context = cleanContext(item.context);
 
     const target = item.mergeInto ? noteById.get(item.mergeInto) : undefined;
     if (target) {
       target.text = text;
+      target.context = context ?? target.context;
       target.sources = { ...target.sources, ...sources };
       target.unrefined = false;
       if (item.topic && cleanTopic(item.topic)) target.topic = cleanTopic(item.topic);
     } else {
       const note: Note = { id: newId("n"), text, topic: cleanTopic(item.topic ?? ""), sources };
+      if (context) note.context = context;
       notes.push(note);
       noteById.set(note.id, note);
     }
@@ -247,7 +267,7 @@ export function toMarkdown(
   doc: LivingDocument,
   scribbles: Scribble[],
   video: { id: string; title: string | null },
-  options: { includeScribbles?: boolean } = {},
+  options: { includeScribbles?: boolean; includeContext?: boolean } = {},
 ): string {
   const lines: string[] = [];
   const title = video.title ?? video.id;
@@ -257,7 +277,8 @@ export function toMarkdown(
     if (section.topic) lines.push(`## ${section.topic}`, "");
     for (const { note, times } of section.notes) {
       const stamps = times.map((t) => `[${formatTime(t)}](${videoLink(video.id, t)})`).join(", ");
-      lines.push(`- ${note.text}${stamps ? ` (${stamps})` : ""}`);
+      const context = note.context && options.includeContext !== false ? ` *(re: ${note.context})*` : "";
+      lines.push(`- ${note.text}${context}${stamps ? ` (${stamps})` : ""}`);
     }
     lines.push("");
   }

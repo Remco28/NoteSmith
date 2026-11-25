@@ -46,7 +46,7 @@ export function Welcome({
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center px-4 pb-16 pt-[8vh]">
         <Smith working={false} scale={5} />
         <h1 className="mt-5 font-pixel text-display text-ink">NoteSmith</h1>
-        <p className="mt-2 max-w-md text-center text-body text-muted">
+        <p className="mt-2 max-w-md text-balance text-center text-body text-muted">
           Scribble while you watch. The smith forges your rough thoughts into clean notes, keeping what you
           meant and adding nothing you didn&apos;t.
         </p>
@@ -66,7 +66,7 @@ export function Welcome({
             aria-label="YouTube link"
             className="field h-10 flex-1 text-[15px]"
           />
-          <button type="submit" className="btn btn-primary h-10 px-4" disabled={!url.trim()}>
+          <button type="submit" className="btn btn-primary h-10 px-4">
             Start
           </button>
         </form>

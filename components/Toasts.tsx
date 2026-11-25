@@ -30,7 +30,7 @@ export function useToasts() {
 
 export function Toasts({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: number) => void }) {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2" aria-live="polite">
+    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2" aria-live="polite">
       {toasts.map((t) => (
         <div
           key={t.id}

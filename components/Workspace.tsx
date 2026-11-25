@@ -80,6 +80,7 @@ function useNarrow(): boolean {
 function Handle({ direction }: { direction: "horizontal" | "vertical" }) {
   return (
     <PanelResizeHandle
+      aria-label={direction === "horizontal" ? "Resize panels left and right" : "Resize panels up and down"}
       className={`group relative flex items-center justify-center ${direction === "horizontal" ? "w-2" : "h-2"}`}
     >
       <span
@@ -202,6 +203,10 @@ export function Workspace() {
   /* ---------- opening and closing videos ---------- */
 
   const openVideo = useCallback((input: string) => {
+    if (!input.trim()) {
+      setOpenError("Paste a YouTube link first.");
+      return;
+    }
     const id = extractVideoId(input);
     if (!id) {
       setOpenError("That doesn't look like a YouTube link.");
@@ -227,6 +232,13 @@ export function Workspace() {
     setSessions(listSessions());
     setTranscript(emptyTranscript);
   }, []);
+
+  // Put the cursor in the scribble box when a video opens.
+  useEffect(() => {
+    if (!videoId) return;
+    const t = setTimeout(() => composerRef.current?.focus(), 100);
+    return () => clearTimeout(t);
+  }, [videoId]);
 
   /* ---------- derived state ---------- */
 
@@ -370,7 +382,10 @@ export function Workspace() {
 
   const markdown = useCallback(() => {
     const s = sessionRef.current!;
-    return toMarkdown(s.doc, s.scribbles, s.video, { includeScribbles: true });
+    return toMarkdown(s.doc, s.scribbles, s.video, {
+      includeScribbles: true,
+      includeContext: settingsRef.current.showContext,
+    });
   }, []);
 
   const copy = useCallback(async () => {
@@ -507,6 +522,7 @@ export function Workspace() {
       autoForge={settings.autoForge}
       freshIds={freshIds}
       staleIds={staleIds}
+      showContext={settings.showContext}
       highlightIds={hoverIds}
       onForge={() => forge("new")}
       onReforgeAll={() => forge("all")}
@@ -538,10 +554,14 @@ export function Workspace() {
         <button type="button" className="btn btn-secondary" onClick={closeVideo}>
           Change video
         </button>
-        {!hasKey && (
-          <button type="button" className="btn btn-secondary text-accent" onClick={() => setSettingsOpen(true)}>
+        {(!hasKey || forgeError?.needsKey) && (
+          <button
+            type="button"
+            className={`btn btn-secondary ${hasKey ? "text-danger" : "text-accent"}`}
+            onClick={() => setSettingsOpen(true)}
+          >
             <KeyIcon size={15} />
-            Add API key
+            {hasKey ? "Fix API key" : "Add API key"}
           </button>
         )}
         <button
@@ -559,8 +579,8 @@ export function Workspace() {
         {narrow ? (
           <div className="flex h-full flex-col gap-2 overflow-y-auto">
             <div className="aspect-video w-full shrink-0">{player}</div>
-            <div className="h-[420px] shrink-0">{scribblesPanel}</div>
-            <div className="h-[480px] shrink-0">{docPanel}</div>
+            <div className="h-[380px] shrink-0">{scribblesPanel}</div>
+            <div className="h-[560px] shrink-0">{docPanel}</div>
             <div className="h-[360px] shrink-0">{transcriptPanel}</div>
           </div>
         ) : (

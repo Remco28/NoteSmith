@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       time: typeof p.time === "number" ? p.time : 0,
       text: str(p.text, 4000) ?? "",
       context: str(p.context, 2000) ?? "",
+      recent: str(p.recent, 1000) ?? "",
     })),
   };
 

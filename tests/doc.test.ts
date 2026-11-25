@@ -50,8 +50,8 @@ test("deleting a scribble removes its note", () => {
 test("applyRefine keeps every scribble even when the model misbehaves", () => {
   const pending = [s("a", 10, "nvidia competitors??"), s("b", 20, "water per prompt?"), s("c", 30, "missed me")];
   const notes = applyRefine([], pending, [
-    { sourceIds: ["a", "zzz"], text: "- Who competes with Nvidia?", topic: "## Nvidia:", mergeInto: null },
-    { sourceIds: ["a", "b"], text: "Water per prompt?", topic: "AI", mergeInto: "does-not-exist" },
+    { sourceIds: ["a", "zzz"], text: "- Who competes with Nvidia?", topic: "## Nvidia:", mergeInto: null, context: null },
+    { sourceIds: ["a", "b"], text: "Water per prompt?", topic: "AI", mergeInto: "does-not-exist", context: null },
   ]);
   assert.equal(notes.length, 3);
   const [n1, n2, n3] = notes;
@@ -67,7 +67,7 @@ test("applyRefine keeps every scribble even when the model misbehaves", () => {
 test("merging into an existing note keeps its old sources", () => {
   const kept = [{ id: "n1", text: "Nvidia competitors?", topic: "Nvidia", sources: { a: "x" } }];
   const notes = applyRefine(kept, [s("b", 40, "AMD maybe")], [
-    { sourceIds: ["b"], text: "Nvidia competitors? AMD maybe.", topic: "Nvidia", mergeInto: "n1" },
+    { sourceIds: ["b"], text: "Nvidia competitors? AMD maybe.", topic: "Nvidia", mergeInto: "n1", context: null },
   ]);
   assert.equal(notes.length, 1);
   assert.deepEqual(Object.keys(notes[0].sources).sort(), ["a", "b"]);
@@ -108,4 +108,14 @@ test("markdown export links each note to its moment", () => {
   assert.match(md, /## Nvidia/);
   assert.match(md, /- Who competes with Nvidia\? \(\[12:04\]\(https:\/\/youtu\.be\/abcdefghijk\?t=724\)\)/);
   assert.match(md, /## Raw scribbles\n\n- 12:04 x/);
+});
+
+test("context stays apart from the user's words, in the doc and the export", () => {
+  const notes = applyRefine([], [s("a", 62, "lol that")], [
+    { sourceIds: ["a"], text: "Lol, that.", topic: "Banking", mergeInto: null, context: "(re: naming the bank after a robbed mountain)" },
+  ]);
+  assert.equal(notes[0].text, "Lol, that.");
+  assert.equal(notes[0].context, "naming the bank after a robbed mountain");
+  const md = toMarkdown({ notes, updatedAt: 1 }, [s("a", 62, "lol that")], { id: "abcdefghijk", title: "T" });
+  assert.match(md, /- Lol, that\. \*\(re: naming the bank after a robbed mountain\)\* \(\[1:02\]/);
 });

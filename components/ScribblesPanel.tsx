@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { formatTime } from "@/lib/doc";
 import { useSpeech } from "@/lib/useSpeech";
 import type { Scribble } from "@/types/notesmith";
-import { EnterIcon, MicIcon, StopIcon, TrashIcon } from "./icons";
+import { EnterIcon, MicIcon, PencilIcon, StopIcon, TrashIcon } from "./icons";
 
 function autosize(el: HTMLTextAreaElement | null, maxRows = 8) {
   if (!el) return;
@@ -36,6 +36,15 @@ function ScribbleRow({
   const [draft, setDraft] = useState(scribble.text);
   const ref = useRef<HTMLTextAreaElement>(null);
   const rowRef = useRef<HTMLLIElement>(null);
+  const textRef = useRef<HTMLButtonElement>(null);
+  const refocus = useRef(false);
+
+  useEffect(() => {
+    if (!editing && refocus.current) {
+      refocus.current = false;
+      textRef.current?.focus();
+    }
+  }, [editing]);
 
   useLayoutEffect(() => {
     if (editing) {
@@ -70,8 +79,9 @@ function ScribbleRow({
       <button
         type="button"
         className="time-chip mt-px"
-        onClick={() => onSeek(scribble.time)}
-        title={`Jump to ${formatTime(scribble.time)}`}
+        onClick={() => onSeek(Math.max(0, scribble.time - 5))}
+        title={`Jump to just before ${formatTime(scribble.time)}`}
+        aria-label={`Jump the video to ${formatTime(scribble.time)}, where you wrote this`}
       >
         {formatTime(scribble.time)}
       </button>
@@ -90,9 +100,11 @@ function ScribbleRow({
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
+              refocus.current = true;
               commit();
             } else if (e.key === "Escape") {
               e.preventDefault();
+              refocus.current = true;
               setDraft(scribble.text);
               setEditing(false);
             }
@@ -101,7 +113,9 @@ function ScribbleRow({
         />
       ) : (
         <button
+          ref={textRef}
           type="button"
+          aria-label={`Edit scribble: ${scribble.text}`}
           className="min-w-0 flex-1 cursor-text whitespace-pre-wrap break-words text-left font-mono text-body text-ink"
           onClick={() => {
             setDraft(scribble.text);
@@ -121,7 +135,20 @@ function ScribbleRow({
 
       <button
         type="button"
-        className="btn-icon -my-1 h-7 w-7 opacity-40 group-hover:opacity-100 focus-visible:opacity-100"
+        className="btn-icon -my-1 h-7 w-7 opacity-60 group-hover:opacity-100 focus-visible:opacity-100"
+        onClick={() => {
+          setDraft(scribble.text);
+          setEditing(true);
+        }}
+        disabled={editing}
+        title="Edit scribble"
+        aria-label="Edit scribble"
+      >
+        <PencilIcon size={14} />
+      </button>
+      <button
+        type="button"
+        className="btn-icon -my-1 h-7 w-7 opacity-60 group-hover:opacity-100 focus-visible:opacity-100"
         onClick={() => onDelete(scribble.id)}
         title="Delete scribble"
         aria-label="Delete scribble"
@@ -247,7 +274,7 @@ export function ScribblesPanel({
               value={text}
               rows={2}
               disabled={!enabled}
-              placeholder={enabled ? "Raw material goes here…" : "Load a video to start scribbling"}
+              placeholder={enabled ? "Type a thought…" : "Load a video to start scribbling"}
               aria-label="New scribble"
               onChange={(e) => {
                 if (!text && e.target.value) setDraftTime(getTime());
