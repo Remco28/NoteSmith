@@ -54,6 +54,9 @@ export async function POST(request: NextRequest) {
       topic: str(n.topic, 80) ?? "",
       text: str(n.text, 2000) ?? "",
       times: Array.isArray(n.times) ? n.times.filter((t): t is number => typeof t === "number").slice(0, 20) : [],
+      written: Array.isArray(n.written)
+        ? n.written.filter((w): w is string => typeof w === "string").slice(0, 20).map((w) => w.slice(0, 2000))
+        : [],
     })),
     pending: pendingRaw.map((p: Record<string, unknown>) => ({
       id: str(p.id, 64) ?? "",

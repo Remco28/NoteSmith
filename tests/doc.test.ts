@@ -135,4 +135,12 @@ test("a context quote survives only if it was really said just before", async ()
   const named = [{ ...pending[0], text: "lol thermostats" }];
   const [noAside] = verifyContext([{ ...item, context: "the bank is named after the lonely mountain" }], named);
   assert.equal(noAside.context, null);
+  // An item that mixes a reaction with a named scribble gets no aside.
+  const mixed = [...pending, { id: "b", time: 63, text: "thermostats", context: "", recent: pending[0].recent }];
+  const [mixedItem] = verifyContext([{ ...item, sourceIds: ["a", "b"], context: "the bank is named after the lonely mountain" }], mixed);
+  assert.equal(mixedItem.context, null);
+  // Contractions stay whole: "can't" does not validate "can".
+  const contr = [{ ...pending[0], recent: "He said that I can't go." }];
+  const [c] = verifyContext([{ ...item, context: "He said that I can" }], contr);
+  assert.equal(c.context, null);
 });

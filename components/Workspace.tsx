@@ -263,7 +263,6 @@ export function Workspace() {
   const forge = useCallback(
     async (mode: "new" | "all" = "new") => {
       if (forgingRef.current || !sessionRef.current) return;
-      const cfg = settingsRef.current;
       forgingRef.current = true;
       setForging(true);
       setForgeError(null);
@@ -283,6 +282,10 @@ export function Workspace() {
             break;
           }
           const batch = pending.slice(0, BATCH);
+          // Read settings per batch, so a change mid-run applies to the next request.
+          const cfg = settingsRef.current;
+          // Notes present now; anything that appears while we wait (an undo) is kept.
+          const startIds = new Set(current.doc.notes.map((n) => n.id));
           setProgress(total > BATCH ? `Forging ${Math.min(done + batch.length, total)} of ${total}…` : "Forging…");
 
           const key = cfg.apiKeys[cfg.provider]?.trim();
@@ -319,6 +322,10 @@ export function Workspace() {
           done += batch.length;
           const fresh = new Set(notes.filter((n) => before.get(n.id) !== n.text).map((n) => n.id));
           setFreshIds(fresh);
+          const notesNow = sessionRef.current?.doc.notes ?? [];
+          const ours = new Set(notes.map((n) => n.id));
+          const arrived = notesNow.filter((n) => !startIds.has(n.id) && !ours.has(n.id));
+          base = { notes: [...notes, ...arrived], updatedAt: Date.now() };
           const committed = base;
           setSession((s) => (s && s.video.id === forVideo ? { ...s, doc: committed } : s));
         }
@@ -379,10 +386,15 @@ export function Workspace() {
         setSession((cur) => {
           if (!cur || cur.video.id !== s.video.id || cur.scribbles.some((x) => x.id === id)) return cur;
           const noteIds = new Set(cur.doc.notes.map((n) => n.id));
+          const covered = new Set(cur.doc.notes.flatMap((n) => Object.keys(n.sources)));
+          // A removed note comes back only if none of its scribbles is in a newer note.
+          const restore = removedNotes.filter(
+            (n) => !noteIds.has(n.id) && Object.keys(n.sources).every((sid) => !covered.has(sid)),
+          );
           return {
             ...cur,
             scribbles: [...cur.scribbles, deleted],
-            doc: { ...cur.doc, notes: [...cur.doc.notes, ...removedNotes.filter((n) => !noteIds.has(n.id))] },
+            doc: { ...cur.doc, notes: [...cur.doc.notes, ...restore] },
           };
         });
       };
@@ -444,7 +456,12 @@ export function Workspace() {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
         if (canForge) forge("new");
-      } else if (!typing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && undoRef.current) {
+      } else if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === "z" &&
+        undoRef.current &&
+        (!typing || (e.target === composerRef.current && !composerRef.current?.value))
+      ) {
         e.preventDefault();
         undoRef.current();
       } else if (!typing && e.key === "/" && session) {

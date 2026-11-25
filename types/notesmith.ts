@@ -93,6 +93,8 @@ export interface ExistingNote {
   topic: string;
   text: string;
   times: number[];
+  /** The scribbles behind it, as the writer typed them. */
+  written: string[];
 }
 
 export interface RefineRequest {

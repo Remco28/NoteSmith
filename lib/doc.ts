@@ -130,7 +130,13 @@ export function noteTimes(note: Note, scribbles: Scribble[]): number[] {
 }
 
 export function toExistingNotes(notes: Note[], scribbles: Scribble[]): ExistingNote[] {
-  return notes.map((n) => ({ id: n.id, topic: n.topic, text: n.text, times: noteTimes(n, scribbles) }));
+  return notes.map((n) => ({
+    id: n.id,
+    topic: n.topic,
+    text: n.text,
+    times: noteTimes(n, scribbles),
+    written: Object.values(n.sources),
+  }));
 }
 
 /* ---------- Applying the model's answer ---------- */

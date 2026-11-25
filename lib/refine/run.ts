@@ -51,7 +51,8 @@ async function callOnce(req: RefineRequest, apiKey: string) {
 function normalize(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[^\p{L}\p{N}']+/gu, " ")
     .trim();
 }
 
@@ -77,10 +78,11 @@ export function verifyContext(items: RefineItem[], pending: RefineRequest["pendi
     if (!quote) return { ...item, context: null };
     // Only reaction scribbles get an aside, and only a quote of whole words
     // that were said in the seconds before.
-    const ok = item.sourceIds.some((id) => {
-      const p = byId.get(id);
-      return p && isReaction(p.text) && ` ${normalize(p.recent)} `.includes(` ${quote} `);
-    });
+    const sources = item.sourceIds.map((id) => byId.get(id));
+    const ok =
+      sources.length > 0 &&
+      sources.every((p) => p && isReaction(p.text)) &&
+      sources.some((p) => ` ${normalize(p!.recent)} `.includes(` ${quote} `));
     return ok ? item : { ...item, context: null };
   });
 }

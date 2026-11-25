@@ -123,7 +123,8 @@ export function buildUserPrompt(
         notes
           .map((n) => {
             const when = n.times.length ? n.times.map(formatTime).join(", ") : "?";
-            return `- id=${n.id} | ${when} | topic "${n.topic}" | ${n.text}`;
+            const written = (n.written ?? []).map((w) => `"${escape(w)}"`).join(" + ");
+            return `- id=${n.id} | ${when} | topic "${n.topic}" | ${n.text}${written ? ` | written as: ${written}` : ""}`;
           })
           .join("\n"),
     );
