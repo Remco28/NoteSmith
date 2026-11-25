@@ -128,4 +128,11 @@ test("a context quote survives only if it was really said just before", async ()
   assert.equal(kept.context, "the bank is named after the lonely mountain in The Hobbit");
   const [dropped] = verifyContext([{ ...item, context: "naming the bank after a robbed mountain" }], pending);
   assert.equal(dropped.context, null);
+  // Whole words only: "he" must not match inside "the".
+  const [partial] = verifyContext([{ ...item, context: "he bank is named" }], pending);
+  assert.equal(partial.context, null);
+  // A scribble that names its own subject never gets an aside.
+  const named = [{ ...pending[0], text: "lol thermostats" }];
+  const [noAside] = verifyContext([{ ...item, context: "the bank is named after the lonely mountain" }], named);
+  assert.equal(noAside.context, null);
 });

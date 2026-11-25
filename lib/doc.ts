@@ -114,7 +114,10 @@ export function toPending(scribbles: Scribble[], segments: TranscriptSegment[]):
     time: s.time,
     text: s.text.trim(),
     context: transcriptAround(segments, s.time),
-    recent: transcriptAround(segments, s.time, RECENT_BEFORE_S, RECENT_AFTER_S),
+    recent: segments
+      .filter((seg) => seg.start >= s.time - RECENT_BEFORE_S && seg.start <= s.time + RECENT_AFTER_S)
+      .map((seg) => seg.text.replace(/\s+/g, " ").trim())
+      .join(" "),
   }));
 }
 

@@ -299,6 +299,13 @@ export function Workspace() {
           });
           const body = (await res.json().catch(() => ({}))) as Partial<RefineResponse> & { error?: string };
           if (!res.ok) {
+            // An answer for settings that have since changed says nothing about the new ones.
+            const now = settingsRef.current;
+            const changed =
+              now.provider !== cfg.provider ||
+              now.models[now.provider] !== cfg.models[cfg.provider] ||
+              now.apiKeys[now.provider] !== cfg.apiKeys[cfg.provider];
+            if (changed) break;
             setForgeError({
               message: body.error ?? "Forging failed.",
               needsKey: res.status === 401 || res.status === 403,
@@ -353,21 +360,31 @@ export function Workspace() {
     (id: string) => {
       const s = sessionRef.current;
       if (!s) return;
-      const snapshot = { scribbles: s.scribbles, doc: s.doc };
+      const deleted = s.scribbles.find((x) => x.id === id);
+      if (!deleted) return;
       const scribblesLeft = s.scribbles.filter((x) => x.id !== id);
       const remaining = new Set(scribblesLeft.map((x) => x.id));
       // A note made only from deleted scribbles goes right away; a note that
       // still has other scribbles waits to be re-forged.
       const notes = s.doc.notes.filter((n) => Object.keys(n.sources).some((sid) => remaining.has(sid)));
+      const removedNotes = s.doc.notes.filter((n) => !notes.includes(n));
       setSession({ ...s, scribbles: scribblesLeft, doc: { ...s.doc, notes } });
       setHoverIds(new Set());
       // The row is gone; don't leave keyboard focus on nothing.
       requestAnimationFrame(() => composerRef.current?.focus());
+      // Undo puts back only what this delete removed, on top of whatever has
+      // happened since, so newer scribbles and notes are never lost.
       const undo = () => {
-        undoRef.current = null;
-        setSession((cur) =>
-          cur && cur.video.id === s.video.id ? { ...cur, scribbles: snapshot.scribbles, doc: snapshot.doc } : cur,
-        );
+        if (undoRef.current === undo) undoRef.current = null;
+        setSession((cur) => {
+          if (!cur || cur.video.id !== s.video.id || cur.scribbles.some((x) => x.id === id)) return cur;
+          const noteIds = new Set(cur.doc.notes.map((n) => n.id));
+          return {
+            ...cur,
+            scribbles: [...cur.scribbles, deleted],
+            doc: { ...cur.doc, notes: [...cur.doc.notes, ...removedNotes.filter((n) => !noteIds.has(n.id))] },
+          };
+        });
       };
       undoRef.current = undo;
       setTimeout(() => {
@@ -449,7 +466,7 @@ export function Workspace() {
       s.apiKeys[s.provider] !== before.apiKeys[before.provider];
     setSettings(s);
     saveSettings(s);
-    if (keyChanged) setForgeError(null);
+    setForgeError((err) => (err?.needsKey && !keyChanged ? err : null));
   }, []);
 
   /* ---------- render ---------- */
@@ -593,7 +610,7 @@ export function Workspace() {
       <main className="min-h-0 flex-1 px-2 pb-2">
         {narrow ? (
           <div className="flex h-full flex-col gap-2 overflow-y-auto">
-            <div className="sticky top-0 z-10 aspect-video w-full shrink-0 bg-canvas">{player}</div>
+            <div className="sticky top-0 z-10 aspect-video max-h-[40vh] w-full shrink-0 bg-canvas">{player}</div>
             <div className="h-[380px] shrink-0">{scribblesPanel}</div>
             <div className="h-[560px] shrink-0">{docPanel}</div>
             <div className="h-[360px] shrink-0">{transcriptPanel}</div>

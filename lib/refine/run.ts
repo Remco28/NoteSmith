@@ -60,13 +60,28 @@ function normalize(text: string): string {
  * just before one of its scribbles. A paraphrase or a guess about another
  * moment is dropped, so an aside is always something that was really said.
  */
+const REACTION_WORDS = new Set(
+  "lol lmao lmfao rofl haha hah ha heh hehe this that these those it wait what huh hm hmm same wow whoa omg wtf ok okay oh yes yeah no nope really seriously ugh yikes damn nice right so true agreed".split(" "),
+);
+
+/** A scribble that is only a reaction or pointing word, like "lol that" or "wait what". */
+export function isReaction(text: string): boolean {
+  const words = normalize(text).split(" ").filter(Boolean);
+  return words.length > 0 && words.length <= 4 && words.every((w) => REACTION_WORDS.has(w));
+}
+
 export function verifyContext(items: RefineItem[], pending: RefineRequest["pending"]): RefineItem[] {
-  const recentById = new Map(pending.map((p) => [p.id, normalize(p.recent)]));
+  const byId = new Map(pending.map((p) => [p.id, p]));
   return items.map((item) => {
     const quote = normalize((item.context ?? "").replace(/^\s*(re:)\s*/i, ""));
     if (!quote) return { ...item, context: null };
-    const found = item.sourceIds.some((id) => recentById.get(id)?.includes(quote));
-    return found ? item : { ...item, context: null };
+    // Only reaction scribbles get an aside, and only a quote of whole words
+    // that were said in the seconds before.
+    const ok = item.sourceIds.some((id) => {
+      const p = byId.get(id);
+      return p && isReaction(p.text) && ` ${normalize(p.recent)} `.includes(` ${quote} `);
+    });
+    return ok ? item : { ...item, context: null };
   });
 }
 

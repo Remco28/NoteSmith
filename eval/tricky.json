@@ -1,17 +1,100 @@
 {
-  "video": { "id": "QARxiqCkJF4", "title": "Palmer Luckey on War 2.0", "author": "New York Times Events" },
+  "video": {
+    "id": "QARxiqCkJF4",
+    "title": "Palmer Luckey on War 2.0",
+    "author": "New York Times Events"
+  },
   "note": "Hard cases found by the round-1 adversary reader: pointing words, corrections, doubt punctuation, units.",
   "scribbles": [
-    { "id": "t01", "time": 0, "batch": 1, "text": "Palmer got fired at 24 right? Facebook paid 20 billion for it, I think, crazy" },
-    { "id": "t02", "time": 14, "batch": 1, "text": "actually it was 2 billion not 20 billion, and he was 21 not 24" },
-    { "id": "t03", "time": 13, "batch": 1, "text": "Oculus 2 billion?" },
-    { "id": "t04", "time": 55, "batch": 1, "text": "lol that" },
-    { "id": "t05", "time": 99, "batch": 1, "text": "this" },
-    { "id": "t06", "time": 134, "batch": 1, "text": "wait what" },
-    { "id": "t07", "time": 142, "batch": 1, "text": "what IS happening tho?" },
-    { "id": "t08", "time": 2450, "batch": 2, "text": "desal + chem + ore processing offshore bc nimby. makes sense?? but whos regulating the ocean" },
-    { "id": "t09", "time": 2478, "batch": 2, "text": "most AI runs locally?? chips get stronger... skeptical of big data centers" },
-    { "id": "t10", "time": 2778, "batch": 2, "text": "fired over 9k trump donation. def still bitter" },
-    { "id": "t11", "time": 2785, "batch": 2, "text": "ok he really likes jensen. why" }
+    {
+      "id": "t01",
+      "time": 0,
+      "batch": 1,
+      "text": "Palmer got fired at 24 right? Facebook paid 20 billion for it, I think, crazy"
+    },
+    {
+      "id": "t02",
+      "time": 14,
+      "batch": 1,
+      "text": "actually it was 2 billion not 20 billion, and he was 21 not 24"
+    },
+    {
+      "id": "t03",
+      "time": 13,
+      "batch": 1,
+      "text": "Oculus 2 billion?"
+    },
+    {
+      "id": "t04",
+      "time": 55,
+      "batch": 1,
+      "text": "lol that"
+    },
+    {
+      "id": "t05",
+      "time": 99,
+      "batch": 1,
+      "text": "this"
+    },
+    {
+      "id": "t06",
+      "time": 134,
+      "batch": 1,
+      "text": "wait what"
+    },
+    {
+      "id": "t07",
+      "time": 142,
+      "batch": 1,
+      "text": "what IS happening tho?"
+    },
+    {
+      "id": "t08",
+      "time": 2450,
+      "batch": 2,
+      "text": "desal + chem + ore processing offshore bc nimby. makes sense?? but whos regulating the ocean"
+    },
+    {
+      "id": "t09",
+      "time": 2478,
+      "batch": 2,
+      "text": "most AI runs locally?? chips get stronger... skeptical of big data centers"
+    },
+    {
+      "id": "t10",
+      "time": 2778,
+      "batch": 2,
+      "text": "fired over 9k trump donation. def still bitter"
+    },
+    {
+      "id": "t11",
+      "time": 2785,
+      "batch": 2,
+      "text": "ok he really likes jensen. why"
+    },
+    {
+      "id": "t12",
+      "time": 15,
+      "batch": 3,
+      "text": "90b for andrew, wow. oculus 2b at 21"
+    },
+    {
+      "id": "t13",
+      "time": 224,
+      "batch": 4,
+      "text": "correction: earlier I wrote 90b for andrew, I meant the valuation not what he paid. and same"
+    },
+    {
+      "id": "t14",
+      "time": 178,
+      "batch": 3,
+      "text": "he says north korea is using AI to hack for money"
+    },
+    {
+      "id": "t15",
+      "time": 2615,
+      "batch": 3,
+      "text": "NORTH KOREA is the problem apparently"
+    }
   ]
 }

@@ -17,12 +17,12 @@ The transcript excerpts are there for two things only: fixing misheard or misspe
 Do:
 - Keep every idea, name, number, question, opinion and doubt the scribble contains, and their strength ("def" means "definitely").
 - Keep the writer's punctuation of doubt and surprise exactly: "??" stays "??", "?!" stays "?!". Keep emphasis: a word or phrase in CAPITALS becomes *italics* ("IS" -> *is*, "NORTH KOREA" -> *North Korea*).
-- Fix spelling, grammar, shorthand and garbled names.
+- Fix spelling, grammar and shorthand. Fix a misheard name only when the video title or transcript spells it the way you would; otherwise keep the writer's word and put your guess after it in brackets with a question mark: "andrew (Anduril?)".
 - Keep questions as questions. You may make them clearer. Keep statements as statements: never add a question mark the writer didn't write.
 - Keep doubt visible ("dunno", "not sure", "maybe", "I think"). Don't turn a doubt into a fact, or a fact into a doubt.
 - Keep opinions and reactions as the writer's own ("Kinda smart.", "I agree.", "lol").
 - Keep attribution: "he says", "she claims", "according to him" mark someone else's claim and must stay, so it never reads as the writer's own.
-- Turn fragments into something a stranger could read: you may add small connecting words ("can", "is", "in", "about") but not new information.
+- Turn fragments into something a stranger could read: you may add small connecting words ("is", "in", "about", "and") but not new information. Never add a word that says what happened (sold, paid, bought, said, won, fired) if the writer didn't: "oculus 2b at 21" becomes "Oculus, 2b at 21.", not "Oculus sold for 2b at 21."
 - Keep numbers as written: no currency symbols, units or precision the writer didn't write ("9k" stays "9k", not "$9k").
 - A scribble that is just a name or topic stays just that name or topic, spelled correctly.
 
@@ -45,7 +45,7 @@ Topics:
 Combining:
 - One scribble becomes one note. Related scribbles stay separate notes under the same topic.
 - Combine only when a scribble can't stand on its own because it continues another one ("also AMD?" right after a note asking who competes with Nvidia) or corrects it.
-- A correction replaces what it corrects, together with any doubt it settles. Write the corrected version once and end with what changed in brackets, so the note never states both the old and the new claim. Example: "fb paid 20B for it right? i think. crazy" followed by "actually 2B not 20B" -> "Facebook paid 2B for it. Crazy. (Corrected from 20B.)" The "right?" and "i think" go, because the correction settled them. Everything else the original said stays (who did what, when, the writer's reaction).
+- A correction replaces what it corrects, together with any doubt it settles. Write the corrected version once and end with what changed in brackets, so the note never states both the old and the new claim. Example: "fb paid 20B for it right? i think. crazy" followed by "actually 2B not 20B" -> "Facebook paid 2B for it. Crazy. (Corrected from 20B.)" The "right?" and "i think" go, because the correction settled them. Everything else the original said stays (who did what, when, the writer's reaction). The bracket names only what the writer actually wrote before; never invent it. Words in the correction that don't belong to it (a stray "and same") are a separate thought: keep them, but not as part of the corrected claim.
 - To fold a new scribble into an existing note, set mergeInto to that note's id and write the combined text, which must still say everything the existing note said (except what a correction replaces). Otherwise set mergeInto to null.
 - Never restate existing notes.
 - Every new scribble id must appear in exactly one item's sourceIds.
@@ -54,7 +54,7 @@ Examples of scribble -> text | context (topic):
 - "Who are Nvidia's competitors? Do they even have any?" -> "Who actually competes with Nvidia? Does anyone?" | null (Chip makers)
 - "electricity usage, water, 1 gallon of water per prompt?, new data says 5ml of water, dunno what's true" -> "Electricity and water use: 1 gallon of water per prompt? Newer data says 5ml of water. Not sure what's true." | null (Energy and water)
 - "agent orchestrate, openclaw?, openclaude? hermes, paperclip" -> "Agent orchestrators: OpenClaw (or OpenClaude?), Hermes, PaperClip." | null (AI agents)
-- "John Doe is trying very hard to shake his perception as a greedy tech bro" -> "John Doe is trying hard to shake his image as a greedy tech bro." | null (John Doe)
+- "John Doe is trying very hard to shake his perception as a greedy tech bro" -> "John Doe is trying very hard to shake his image as a greedy tech bro." | null (John Doe)
 - "tim cook" (video title: "Tim Cook on the iPhone") -> "Tim Cook." | null (iPhone)
 - "printer jam tray 2 pull hard" -> "Printer jam: pull tray 2 out hard." | null (Office)
 - "wait what happened to the merger??" -> "Wait, what happened to the merger??" | null (The merger)

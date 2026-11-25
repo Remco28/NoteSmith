@@ -60,10 +60,14 @@ function keys(): string[] {
   }
 }
 
+const SETTINGS_VERSION = 2;
+
 export function loadSettings(): Settings {
-  const saved = read<Partial<Settings>>("settings");
+  const saved = read<Partial<Settings> & { version?: number }>("settings");
   const base = defaultSettings();
   if (!saved) return base;
+  // Version 1 defaulted the context aside to on; it is opt-in now.
+  if ((saved.version ?? 1) < SETTINGS_VERSION) delete saved.showContext;
   return {
     provider: saved.provider === "openai" ? "openai" : "anthropic",
     models: { ...base.models, ...(saved.models ?? {}) },
@@ -73,7 +77,7 @@ export function loadSettings(): Settings {
   };
 }
 
-export const saveSettings = (s: Settings) => write("settings", s);
+export const saveSettings = (s: Settings) => write("settings", { ...s, version: SETTINGS_VERSION });
 
 export const loadCurrentVideoId = () => read<string>("current");
 export function saveCurrentVideoId(id: string | null) {
@@ -81,8 +85,21 @@ export function saveCurrentVideoId(id: string | null) {
   else remove("current");
 }
 
-export const loadSession = (videoId: string) => read<Session>(`session:${videoId}`);
-export const saveSession = (session: Session) => write(`session:${session.video.id}`, session);
+/**
+ * Bump when the meaning of stored notes changes. Notes are derived from the
+ * scribbles, so an older session keeps its scribbles and has its notes
+ * rebuilt on the next forge, instead of showing notes made under old rules.
+ */
+const SESSION_VERSION = 3;
+
+export function loadSession(videoId: string): Session | null {
+  const s = read<Session & { version?: number }>(`session:${videoId}`);
+  if (!s) return null;
+  if ((s.version ?? 1) < SESSION_VERSION) return { ...s, doc: { notes: [], updatedAt: null } };
+  return s;
+}
+export const saveSession = (session: Session) =>
+  write(`session:${session.video.id}`, { ...session, version: SESSION_VERSION });
 export function deleteSession(videoId: string) {
   remove(`session:${videoId}`);
   remove(`transcript:${videoId}`);
