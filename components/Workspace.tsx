@@ -108,6 +108,8 @@ export function Workspace() {
   const [forgeError, setForgeError] = useState<{ message: string; needsKey: boolean } | null>(null);
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
   const [hoverIds, setHoverIds] = useState<Set<string>>(new Set());
+  // Which panel the pointer (or keyboard focus) is in: the other one follows it.
+  const [hoverFrom, setHoverFrom] = useState<"scribbles" | "doc" | null>(null);
   const [lastAddedId, setLastAddedId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { toasts, show, dismiss } = useToasts();
@@ -425,7 +427,14 @@ export function Workspace() {
   const seek = useCallback((t: number) => playerRef.current?.seekTo(t), []);
   const getTime = useCallback(() => playerRef.current?.getTime() ?? 0, []);
   const pauseVideo = useCallback(() => playerRef.current?.pause(), []);
-  const onHover = useCallback((ids: string[] | null) => setHoverIds(new Set(ids ?? [])), []);
+  const onHoverScribbles = useCallback((ids: string[] | null) => {
+    setHoverIds(new Set(ids ?? []));
+    setHoverFrom(ids ? "scribbles" : null);
+  }, []);
+  const onHoverDoc = useCallback((ids: string[] | null) => {
+    setHoverIds(new Set(ids ?? []));
+    setHoverFrom(ids ? "doc" : null);
+  }, []);
 
   /* ---------- export ---------- */
 
@@ -568,7 +577,8 @@ export function Workspace() {
       onEdit={editScribble}
       onDelete={deleteScribble}
       onSeek={seek}
-      onHover={onHover}
+      onHover={onHoverScribbles}
+      follow={hoverFrom === "doc"}
     />
   );
   const docPanel = (
@@ -589,7 +599,8 @@ export function Workspace() {
       onCopy={copy}
       onDownload={download}
       onSeek={seek}
-      onHover={onHover}
+      onHover={onHoverDoc}
+      follow={hoverFrom === "scribbles"}
       onOpenSettings={() => setSettingsOpen(true)}
     />
   );

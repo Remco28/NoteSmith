@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { formatTime, sections } from "@/lib/doc";
+import { revealInPanel } from "@/lib/scroll";
 import type { LivingDocument, NoteDetail, Scribble } from "@/types/notesmith";
 import { AlertIcon, CopyIcon, DownloadIcon, HammerIcon, RefreshIcon } from "./icons";
 import { Smith } from "./Smith";
@@ -54,6 +55,7 @@ export function DocPanel({
   onDownload,
   onSeek,
   onHover,
+  follow,
   onOpenSettings,
 }: {
   doc: LivingDocument;
@@ -73,11 +75,19 @@ export function DocPanel({
   onDownload: () => void;
   onSeek: (t: number) => void;
   onHover: (ids: string[] | null) => void;
+  /** Scroll to the highlighted note: the scribbles panel is leading. */
+  follow: boolean;
   onOpenSettings: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   // Show text labels on the toolbar only when the panel itself is wide enough.
   const panelRef = useRef<HTMLElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!follow || highlightIds.size === 0) return;
+    revealInPanel(scrollRef.current, scrollRef.current?.querySelector<HTMLElement>('li[data-lit="true"]') ?? null);
+  }, [follow, highlightIds]);
   const [wide, setWide] = useState(false);
   useEffect(() => {
     const el = panelRef.current;
@@ -215,7 +225,7 @@ export function DocPanel({
         </div>
       )}
 
-      <div className="relative min-h-0 flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto">
         {!hasNotes ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
             <Smith working={forging} scale={4} />
@@ -240,6 +250,7 @@ export function DocPanel({
                     return (
                       <li
                         key={note.id}
+                        data-lit={lit}
                         className={`relative -mx-2 flex gap-3 rounded-sm px-2 py-1 transition-colors ${
                           lit ? "bg-accent-soft" : ""
                         } ${freshIds.has(note.id) ? "just-forged" : ""} ${stale ? "opacity-50" : ""}`}

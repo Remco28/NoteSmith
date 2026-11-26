@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { revealInPanel } from "@/lib/scroll";
 import { formatTime } from "@/lib/doc";
 import { useSpeech } from "@/lib/useSpeech";
 import type { Scribble } from "@/types/notesmith";
@@ -73,8 +74,13 @@ function ScribbleRow({
         highlighted ? "bg-accent-soft" : "hover:bg-raised"
       } ${isNew ? "fade-in" : ""}`}
       style={{ transitionDuration: "var(--duration)" }}
+      data-lit={highlighted}
       onMouseEnter={() => onHover([scribble.id])}
       onMouseLeave={() => onHover(null)}
+      onFocus={() => onHover([scribble.id])}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onHover(null);
+      }}
     >
       <button
         type="button"
@@ -174,6 +180,7 @@ export function ScribblesPanel({
   onDelete,
   onSeek,
   onHover,
+  follow,
 }: {
   scribbles: Scribble[];
   pendingIds: Set<string>;
@@ -189,10 +196,18 @@ export function ScribblesPanel({
   onDelete: (id: string) => void;
   onSeek: (t: number) => void;
   onHover: (ids: string[] | null) => void;
+  /** Scroll to the highlighted scribbles: the Living Document is leading. */
+  follow: boolean;
 }) {
   const [text, setText] = useState("");
   const [draftTime, setDraftTime] = useState<number | null>(null);
   const voiceTime = useRef(0);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!follow || highlightIds.size === 0) return;
+    revealInPanel(listRef.current, listRef.current?.querySelector<HTMLElement>('li[data-lit="true"]') ?? null);
+  }, [follow, highlightIds]);
   const speech = useSpeech((spoken) => onAdd(spoken, voiceTime.current));
   const sorted = [...scribbles].sort((a, b) => a.time - b.time || a.createdAt - b.createdAt);
   const shownTime = draftTime ?? time;
@@ -225,7 +240,7 @@ export function ScribblesPanel({
         </span>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5">
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5">
         {sorted.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
             <p className="font-mono text-title text-faint">Raw material goes here.</p>
