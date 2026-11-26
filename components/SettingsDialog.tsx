@@ -162,8 +162,8 @@ export function SettingsDialog({
             </datalist>
             <p className="mt-1.5 text-caption text-faint">
               Any {p.name} model id. The default fills in from the video well; a smaller model
-              {p.id === "anthropic" ? " (claude-haiku-5-5)" : " (gpt-5.4-nano)"} costs about a third as much but
-              explains less.
+              {p.id === "anthropic" ? " (claude-haiku-5-5)" : " (gpt-5.4-nano)"} costs far less but often leaves
+              notes vague.
             </p>
           </div>
 

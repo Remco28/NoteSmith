@@ -28,7 +28,8 @@ Open the app, paste a YouTube link, and add your API key in **Settings** (the ge
 Each person uses their own key:
 
 - **Provider:** Anthropic (default) or OpenAI.
-- **Model:** any model id. The default is `claude-sonnet-5-5`: about 1 to 2 cents per forge once the transcript is cached, so roughly 50 cents for an hour of video. `claude-haiku-5-5` costs about a third as much and is faster, but names subjects and fills in less.
+- **Model:** any model id. The default is `claude-sonnet-5-5`. `claude-haiku-5-5` costs about a twentieth as much, but often leaves notes vague (it doesn't name who "they" are).
+- **Cost:** every forge sends the whole transcript (about 25,000 tokens per hour of video). It is cached for an hour after its last use, so only the first forge pays to send it in full; later ones read it at a tenth of the price. With Sonnet 5.5 that's roughly 10 to 20 cents for the first forge on an hour-long video and about 1 cent for each one after.
 - The key is kept only in the browser's local storage and sent with each forge request. The server uses it for that request and never stores or logs it.
 
 **A key on the server (optional).** Put `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` in `.env.local` and the app works without entering a key in the browser. For safety, the server's key is used **only for requests to localhost**. On a public deployment it's ignored, unless you set `NOTESMITH_SHARE_SERVER_KEY=true`, which lets anyone with the URL spend your credits. See `.env.example`.

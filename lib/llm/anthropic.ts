@@ -26,7 +26,16 @@ export async function anthropicJson(req: JsonRequest): Promise<JsonResult> {
           role: "user",
           content: [
             ...(req.context
-              ? [{ type: "text" as const, text: req.context, cache_control: { type: "ephemeral" as const } }]
+              ? [
+                  {
+                    type: "text" as const,
+                    text: req.context,
+                    // An hour, not the default 5 minutes: people often go longer than
+                    // 5 minutes between scribbles, and rewriting a long transcript
+                    // into the cache costs ~25x a cache read.
+                    cache_control: { type: "ephemeral" as const, ttl: "1h" as const },
+                  },
+                ]
               : []),
             { type: "text" as const, text: req.user },
           ],
