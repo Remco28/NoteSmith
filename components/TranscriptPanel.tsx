@@ -3,6 +3,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "@/lib/doc";
 import type { TranscriptSegment } from "@/types/notesmith";
+import { BookmarkLink } from "./BookmarkLink";
 import { LocateIcon } from "./icons";
 
 interface Line {
@@ -89,16 +90,16 @@ const Row = memo(function Row({
 });
 
 export function TranscriptPanel({
+  videoId,
   segments,
   time,
   status,
-  message,
   onSeek,
 }: {
+  videoId: string;
   segments: TranscriptSegment[];
   time: number;
-  status: "loading" | "ready" | "unavailable" | "error";
-  message?: string | null;
+  status: "loading" | "ready" | "missing" | "unavailable";
   onSeek: (t: number) => void;
 }) {
   const lines = useMemo(() => toLines(segments), [segments]);
@@ -186,17 +187,28 @@ export function TranscriptPanel({
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-center p-6 text-center text-body text-muted">
-          {status === "loading" && <span className="pulse-dot">Fetching captions…</span>}
+          {status === "loading" && <span className="pulse-dot">Loading the transcript…</span>}
+          {status === "missing" && (
+            <div className="flex max-w-sm flex-col items-center gap-3">
+              <p className="text-ink">No transcript yet</p>
+              <p>
+                Open this video on YouTube and click your NoteSmith bookmark. It brings the transcript back here, and
+                your scribbles are kept.
+              </p>
+              <a className="btn btn-secondary h-8" href={`https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(time)}s`}>
+                Open on YouTube
+              </a>
+              <p className="pt-2 text-caption text-faint">No bookmark yet?</p>
+              <BookmarkLink className="items-center" />
+            </div>
+          )}
           {status === "unavailable" && (
             <div className="max-w-xs space-y-1">
               <p className="text-ink">No transcript for this video</p>
-              <p>{message ?? "It has no captions."} You can still scribble; notes will be refined without it.</p>
-            </div>
-          )}
-          {status === "error" && (
-            <div className="max-w-xs space-y-1">
-              <p className="text-ink">Couldn&apos;t load the transcript</p>
-              <p>{message}</p>
+              <p>
+                YouTube didn&apos;t give one for it. You can still scribble; your notes are tidied and grouped, but
+                nothing is filled in from the video.
+              </p>
             </div>
           )}
         </div>

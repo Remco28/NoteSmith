@@ -167,3 +167,24 @@ test("a merge replaces the old detail, or removes it", () => {
   ]);
   assert.equal(notes[0].detail, undefined);
 });
+
+test("what the bookmark sends is read back, and anything else is refused", async () => {
+  const { readImport, IMPORT_PREFIX, bookmarkletHref } = await import("@/lib/bookmarklet");
+  const payload = { v: 1, id: "9oNvKMd7xJo", title: "A talk", author: "Someone", source: "uploaded", lang: "en", segs: [[0.1, 1.8, "So we rebuilt it"], [1.8, 3, "in Rust."]] };
+  const gz = new Response(new Blob([JSON.stringify(payload)]).stream().pipeThrough(new CompressionStream("gzip")));
+  const b64 = Buffer.from(await gz.arrayBuffer()).toString("base64url");
+  const got = await readImport(IMPORT_PREFIX + b64);
+  assert.equal(got?.id, "9oNvKMd7xJo");
+  assert.equal(got?.source, "uploaded");
+  assert.deepEqual(got?.segments[1], { start: 1.8, end: 3, text: "in Rust." });
+  assert.equal(await readImport("#import=not-gzip"), null);
+  assert.equal(await readImport("#other"), null);
+  const bad = { ...payload, id: "../../etc" };
+  const gz2 = new Response(new Blob([JSON.stringify(bad)]).stream().pipeThrough(new CompressionStream("gzip")));
+  assert.equal(await readImport(IMPORT_PREFIX + Buffer.from(await gz2.arrayBuffer()).toString("base64url")), null);
+  const href = bookmarkletHref("https://example.github.io/NoteSmith/");
+  assert.ok(href.startsWith("javascript:"));
+  assert.ok(decodeURIComponent(href).includes('const APP = "https://example.github.io/NoteSmith/"'));
+  // The bookmark's code must parse as JavaScript.
+  new Function(decodeURIComponent(href).slice("javascript:".length));
+});

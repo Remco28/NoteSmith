@@ -1,5 +1,6 @@
 /**
- * YouTube transcript and title lookup.
+ * YouTube transcript lookup for the eval (Node only). The app itself gets
+ * transcripts from the NoteSmith bookmark; see lib/bookmarklet.ts.
  *
  * Captions come from the `youtube-transcript` package, which reads YouTube's
  * public (undocumented) caption endpoint. Without a language it returns the
@@ -16,8 +17,8 @@ import {
   fetchTranscript as rawFetchTranscript,
 } from "youtube-transcript";
 
-import { TranscriptUnavailableError } from "@/lib/errors";
-import { normalizeTranscript } from "@/lib/transcript/normalize";
+import { TranscriptUnavailableError } from "./errors";
+import { normalizeTranscript } from "./normalize";
 import type { TranscriptSegment } from "@/types/notesmith";
 
 export async function fetchTranscript(
@@ -54,21 +55,4 @@ function mapError(videoId: string, err: unknown): unknown {
     return new TranscriptUnavailableError(videoId, "YouTube wouldn't hand over the captions right now.");
   }
   return err;
-}
-
-/** Title and channel via YouTube's public oEmbed endpoint. Never throws. */
-export async function fetchVideoInfo(
-  videoId: string,
-): Promise<{ title: string | null; author: string | null }> {
-  try {
-    const url = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(
-      `https://www.youtube.com/watch?v=${videoId}`,
-    )}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return { title: null, author: null };
-    const data = (await res.json()) as { title?: string; author_name?: string };
-    return { title: data.title ?? null, author: data.author_name ?? null };
-  } catch {
-    return { title: null, author: null };
-  }
 }

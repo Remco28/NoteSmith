@@ -26,6 +26,13 @@ Short fades of 120 ms (`--duration`) for interface changes. The only longer anim
 | Rebuilding all notes | Re-forge all | regenerate |
 | Notes waiting | "N scribbles waiting" | pending, queued |
 
+## Hosting
+
+- **A static site on GitHub Pages, with no server** (decided 2026-11-25). The author doesn't want to run or manage a service, and the app is desktop-only.
+- **AI calls go from the browser** straight to Anthropic or OpenAI with the user's own key (both allow it).
+- **Transcripts come from a bookmark run on youtube.com**, because YouTube blocks caption downloads from cloud servers (tested: a Cloudflare Worker got "Sign in to confirm you're not a bot" on most requests) and its pages can't be read cross-site. From inside the YouTube page, on the user's own connection, both the caption endpoint and the "Show transcript" panel work. Copying the transcript panel by hand is not practical, so there is no paste option.
+- The bookmark carries the transcript to NoteSmith in the URL hash (gzip, base64url), which never leaves the browser.
+
 ## Behaviour
 
 - **Scribbles are the content; the video fills them in.** v1 replaced scribbles with paragraphs built around them; v2 only reworded them, which read like a copy. v3 (the current one) splits each note into two parts:

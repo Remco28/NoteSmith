@@ -4,6 +4,7 @@ import { useState } from "react";
 import { formatTime } from "@/lib/doc";
 import type { Session } from "@/types/notesmith";
 import { KeyIcon, SettingsIcon, XIcon } from "./icons";
+import { BookmarkLink } from "./BookmarkLink";
 import { Smith } from "./Smith";
 
 function ago(ms: number): string {
@@ -47,19 +48,48 @@ export function Welcome({
         <Smith working={false} scale={5} />
         <h1 className="mt-5 font-pixel text-display text-ink">NoteSmith</h1>
         <p className="mt-2 max-w-md text-balance text-center text-body text-muted">
-          Scribble while you watch. The smith forges your rough thoughts into clean notes, keeping what you
-          meant and adding nothing you didn&apos;t.
+          Scribble while you watch. The smith forges your rough thoughts into notes you can reread later: your
+          words made clear, and filled in from the video.
         </p>
 
+        <ol className="mt-8 w-full space-y-3 text-body">
+          <li className="flex gap-3 rounded-md border border-border bg-surface p-3">
+            <span className="font-pixel text-title text-accent">1</span>
+            <span className="flex-1">
+              <span className="block text-ink">Add the NoteSmith bookmark</span>
+              <span className="mb-2 block text-caption text-muted">
+                It fetches a video&apos;s transcript from YouTube, from inside your own browser. You only do this once.
+              </span>
+              <BookmarkLink />
+            </span>
+          </li>
+          <li className="flex gap-3 rounded-md border border-border bg-surface p-3">
+            <span className="font-pixel text-title text-accent">2</span>
+            <span className="flex-1">
+              <span className="block text-ink">On any YouTube video, click the bookmark</span>
+              <span className="block text-caption text-muted">The video opens here with its transcript.</span>
+            </span>
+          </li>
+          <li className="flex gap-3 rounded-md border border-border bg-surface p-3">
+            <span className="font-pixel text-title text-accent">3</span>
+            <span className="flex-1">
+              <span className="block text-ink">Scribble</span>
+              <span className="block text-caption text-muted">
+                Type or speak. Each thought is stamped with the moment, and notes forge themselves as you go.
+              </span>
+            </span>
+          </li>
+        </ol>
+
+        <p className="mt-6 self-start text-caption text-faint">Or paste a link here, and load its transcript with the bookmark later:</p>
         <form
-          className="mt-8 flex w-full gap-2"
+          className="mt-1.5 flex w-full gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             onOpen(url);
           }}
         >
           <input
-            autoFocus
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="Paste a YouTube link"
@@ -90,20 +120,6 @@ export function Welcome({
             </span>
           </button>
         )}
-
-        <ol className="mt-8 grid w-full grid-cols-3 gap-3 text-caption text-muted">
-          {[
-            ["1", "Paste a link", "Any YouTube video with captions."],
-            ["2", "Scribble", "Type or speak. Each thought is stamped with the moment."],
-            ["3", "Read the notes", "They forge themselves as you go. Export to Markdown."],
-          ].map(([n, title, body]) => (
-            <li key={n} className="rounded-md border border-border bg-surface p-3">
-              <span className="font-pixel text-title text-accent">{n}</span>
-              <span className="mt-1 block text-body text-ink">{title}</span>
-              <span className="mt-0.5 block">{body}</span>
-            </li>
-          ))}
-        </ol>
 
         {sessions.length > 0 && (
           <section className="mt-10 w-full">

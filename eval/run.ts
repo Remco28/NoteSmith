@@ -13,7 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
-import { fetchTranscript } from "@/lib/transcript/adapter";
+import { fetchTranscript } from "./lib/youtube";
 import {
   applyRefine,
   emptyDocument,

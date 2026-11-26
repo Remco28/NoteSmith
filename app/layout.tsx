@@ -10,7 +10,6 @@ const pixel = Pixelify_Sans({ subsets: ["latin"], variable: "--font-pixel", disp
 export const metadata: Metadata = {
   title: "NoteSmith",
   description: "Scribble while you watch. NoteSmith forges your scribbles into clean notes.",
-  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

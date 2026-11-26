@@ -1,5 +1,5 @@
 /**
- * Server-side refine step: one model call (plus one retry for anything the
+ * The forging step, run in the browser (and by the eval): one model call (plus one retry for anything the
  * model left out), with the answer checked against the request.
  */
 

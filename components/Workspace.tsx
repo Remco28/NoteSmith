@@ -27,9 +27,12 @@ import {
   saveTranscript,
 } from "@/lib/storage";
 import { extractVideoId } from "@/lib/utils/youtube";
+import { IMPORT_PREFIX, readImport } from "@/lib/bookmarklet";
+import { LlmError } from "@/lib/llm/types";
+import { refine } from "@/lib/refine/run";
+import { fetchVideoInfo } from "@/lib/video-info";
 import type {
   LivingDocument,
-  Provider,
   RefineResponse,
   Session,
   Settings,
@@ -50,7 +53,8 @@ const BATCH = 25;
 const AUTO_FORGE_DELAY_MS = 4000;
 
 type TranscriptState = {
-  status: "loading" | "ready" | "unavailable" | "error";
+  /** missing: not loaded yet; the bookmark loads it. unavailable: the bookmark found none. */
+  status: "loading" | "ready" | "missing" | "unavailable";
   segments: TranscriptSegment[];
   message: string | null;
 };
@@ -97,7 +101,6 @@ function Handle({ direction }: { direction: "horizontal" | "vertical" }) {
 export function Workspace() {
   const [hydrated, setHydrated] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [serverKey, setServerKey] = useState<Record<Provider, boolean>>({ anthropic: false, openai: false });
   const [session, setSession] = useState<Session | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [openError, setOpenError] = useState<string | null>(null);
@@ -124,22 +127,42 @@ export function Workspace() {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const forgingRef = useRef(false);
+  // What the bookmark just brought in, kept here too in case storage is full.
+  const importedRef = useRef<{ id: string; segments: TranscriptSegment[] } | null>(null);
 
   /* ---------- load ---------- */
 
   useEffect(() => {
     setSettings(loadSettings());
     setSessions(listSessions());
-    const current = loadCurrentVideoId();
-    if (current) {
-      const saved = loadSession(current);
-      if (saved) setSession({ ...saved, lastOpenedAt: Date.now() });
-    }
-    setHydrated(true);
-    fetch("/api/config")
-      .then((r) => r.json())
-      .then((c: { serverKey?: Record<Provider, boolean> }) => c.serverKey && setServerKey(c.serverKey))
-      .catch(() => {});
+    (async () => {
+      // Arriving from the NoteSmith bookmark: the video and its transcript are in the hash.
+      const hash = window.location.hash;
+      const imported = hash.startsWith(IMPORT_PREFIX) ? await readImport(hash) : null;
+      if (hash.startsWith(IMPORT_PREFIX)) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+      if (imported) {
+        const segments = imported.segments.filter((x) => x.text.trim());
+        importedRef.current = { id: imported.id, segments };
+        if (segments.length) saveTranscript(imported.id, segments);
+        const s = loadSession(imported.id) ?? newSession(imported.id);
+        const opened: Session = {
+          ...s,
+          video: { ...s.video, title: imported.title ?? s.video.title, author: imported.author ?? s.video.author },
+          lastOpenedAt: Date.now(),
+        };
+        saveSession(opened);
+        saveCurrentVideoId(imported.id);
+        setSession(opened);
+      } else {
+        if (hash.startsWith(IMPORT_PREFIX)) setOpenError("That link from the bookmark was damaged. Click the bookmark again.");
+        const current = loadCurrentVideoId();
+        const saved = current ? loadSession(current) : null;
+        if (saved) setSession({ ...saved, lastOpenedAt: Date.now() });
+      }
+      setHydrated(true);
+    })();
   }, []);
 
   /* ---------- persistence ---------- */
@@ -162,42 +185,22 @@ export function Workspace() {
 
   useEffect(() => {
     if (!videoId) return;
-    let cancelled = false;
-    const cached = loadTranscript(videoId);
-    const needInfo = !sessionRef.current?.video.title;
-    if (cached?.length && !needInfo) {
-      setTranscript({ status: "ready", segments: cached, message: null });
-      return;
-    }
-    setTranscript(cached?.length ? { status: "ready", segments: cached, message: null } : emptyTranscript);
+    const imported = importedRef.current?.id === videoId ? importedRef.current : null;
+    const segments = imported?.segments.length ? imported.segments : loadTranscript(videoId);
+    if (segments?.length) setTranscript({ status: "ready", segments, message: null });
+    else if (imported) setTranscript({ status: "unavailable", segments: [], message: null });
+    else setTranscript({ status: "missing", segments: [], message: null });
 
-    const lang = (navigator.language || "en").slice(0, 2);
-    fetch(`/api/transcript?videoId=${videoId}&lang=${lang}`)
-      .then(async (r) => ({ ok: r.ok, status: r.status, body: await r.json() }))
-      .then(({ ok, status, body }) => {
-        if (cancelled) return;
-        if (body.title || body.author) {
-          setSession((s) =>
-            s && s.video.id === videoId
-              ? { ...s, video: { ...s.video, title: body.title ?? s.video.title, author: body.author ?? s.video.author } }
-              : s,
-          );
-        }
-        if (ok) {
-          setTranscript({ status: "ready", segments: body.segments, message: null });
-          saveTranscript(videoId, body.segments);
-        } else if (!cached?.length) {
-          setTranscript({
-            status: status === 422 ? "unavailable" : "error",
-            segments: [],
-            message: body.error ?? null,
-          });
-        }
-      })
-      .catch(() => {
-        if (!cancelled && !cached?.length)
-          setTranscript({ status: "error", segments: [], message: "Check your connection and reload." });
-      });
+    if (sessionRef.current?.video.title) return;
+    let cancelled = false;
+    fetchVideoInfo(videoId).then((info) => {
+      if (cancelled || (!info.title && !info.author)) return;
+      setSession((s) =>
+        s && s.video.id === videoId
+          ? { ...s, video: { ...s.video, title: info.title ?? s.video.title, author: info.author ?? s.video.author } }
+          : s,
+      );
+    });
     return () => {
       cancelled = true;
     };
@@ -257,7 +260,7 @@ export function Workspace() {
     const kept = new Set(plan.kept.map((n) => n.id));
     return new Set(doc.notes.filter((n) => !kept.has(n.id)).map((n) => n.id));
   }, [plan, doc.notes]);
-  const hasKey = Boolean(settings.apiKeys[settings.provider]?.trim()) || serverKey[settings.provider];
+  const hasKey = Boolean(settings.apiKeys[settings.provider]?.trim());
   const needsWork = plan.pending.length > 0 || staleIds.size > 0;
   const canForge = Boolean(session) && hasKey && !forging && needsWork;
 
@@ -296,23 +299,28 @@ export function Workspace() {
           setProgress(total > BATCH ? `Forging ${Math.min(done + batch.length, total)} of ${total}…` : "Forging…");
 
           const key = cfg.apiKeys[cfg.provider]?.trim();
-          const res = await fetch("/api/refine", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...(key ? { "x-api-key": key } : {}) },
-            body: JSON.stringify({
-              provider: cfg.provider,
-              model: cfg.models[cfg.provider],
-              video: { title: current.video.title, author: current.video.author },
-              notes: toExistingNotes(kept, current.scribbles),
-              pending: toPending(batch),
-              transcript: transcriptForPrompt(
-                transcriptRef.current.segments,
-                batch.map((s) => s.time),
-              ),
-            }),
-          });
-          const body = (await res.json().catch(() => ({}))) as Partial<RefineResponse> & { error?: string };
-          if (!res.ok) {
+          if (!key) {
+            setForgeError({ message: "Add your API key in Settings to start forging.", needsKey: true });
+            break;
+          }
+          let body: RefineResponse;
+          try {
+            // Straight from this browser to the provider; there is no NoteSmith server.
+            body = await refine(
+              {
+                provider: cfg.provider,
+                model: cfg.models[cfg.provider],
+                video: { title: current.video.title, author: current.video.author },
+                notes: toExistingNotes(kept, current.scribbles),
+                pending: toPending(batch),
+                transcript: transcriptForPrompt(
+                  transcriptRef.current.segments,
+                  batch.map((s) => s.time),
+                ),
+              },
+              key,
+            );
+          } catch (error) {
             // An answer for settings that have since changed says nothing about the new ones.
             const now = settingsRef.current;
             const changed =
@@ -320,9 +328,10 @@ export function Workspace() {
               now.models[now.provider] !== cfg.models[cfg.provider] ||
               now.apiKeys[now.provider] !== cfg.apiKeys[cfg.provider];
             if (changed) break;
+            const status = error instanceof LlmError ? error.status : 0;
             setForgeError({
-              message: body.error ?? "Forging failed.",
-              needsKey: res.status === 401 || res.status === 403,
+              message: error instanceof LlmError ? error.message : "Something went wrong while forging.",
+              needsKey: status === 401 || status === 403,
             });
             break;
           }
@@ -347,7 +356,7 @@ export function Workspace() {
           setSession((s) => (s && s.video.id === forVideo ? { ...s, doc: committed } : s));
         }
       } catch {
-        setForgeError({ message: "Couldn't reach the NoteSmith server.", needsKey: false });
+        setForgeError({ message: "Something went wrong while forging.", needsKey: false });
       } finally {
         forgingRef.current = false;
         setForging(false);
@@ -517,7 +526,6 @@ export function Workspace() {
     <SettingsDialog
       open={settingsOpen}
       settings={settings}
-      serverKey={serverKey}
       onSave={updateSettings}
       onClose={() => setSettingsOpen(false)}
     />
@@ -555,10 +563,10 @@ export function Workspace() {
   );
   const transcriptPanel = (
     <TranscriptPanel
+      videoId={session.video.id}
       segments={transcript.segments}
       time={time}
       status={transcript.status}
-      message={transcript.message}
       onSeek={seek}
     />
   );

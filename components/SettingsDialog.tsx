@@ -25,13 +25,11 @@ const PROVIDERS: Array<{ id: Provider; name: string; keyHint: string; keyUrl: st
 export function SettingsDialog({
   open,
   settings,
-  serverKey,
   onSave,
   onClose,
 }: {
   open: boolean;
   settings: Settings;
-  serverKey: Record<Provider, boolean>;
   onSave: (s: Settings) => void;
   onClose: () => void;
 }) {
@@ -52,7 +50,7 @@ export function SettingsDialog({
   const p = PROVIDERS.find((x) => x.id === draft.provider)!;
   const key = draft.apiKeys[draft.provider];
   const model = draft.models[draft.provider];
-  const needsKey = !key.trim() && !serverKey[draft.provider];
+  const needsKey = !key.trim();
 
   const save = () => {
     onSave({
@@ -119,7 +117,7 @@ export function SettingsDialog({
                 autoComplete="off"
                 spellCheck={false}
                 value={key}
-                placeholder={serverKey[draft.provider] ? "Optional here" : p.keyHint}
+                placeholder={p.keyHint}
                 onChange={(e) => setDraft({ ...draft, apiKeys: { ...draft.apiKeys, [draft.provider]: e.target.value } })}
                 className="field pr-9 font-mono"
               />
@@ -134,8 +132,8 @@ export function SettingsDialog({
               </button>
             </div>
             <p className="mt-1.5 text-caption text-faint">
-              Kept only in this browser. It&apos;s sent to {p.name} through this NoteSmith server with each forge
-              request, and never stored there. Clear the field and save to remove it.{" "}
+              Kept only in this browser, and sent straight to {p.name} with each forge. NoteSmith has no server,
+              so nothing else ever sees it. Clear the field and save to remove it.{" "}
               <a href={p.keyUrl} target="_blank" rel="noreferrer" className="text-muted underline hover:text-ink">
                 Get a key
               </a>
@@ -177,8 +175,7 @@ export function SettingsDialog({
             <span>
               <span className="block text-body text-ink">Forge automatically</span>
               <span className="block text-caption text-faint">
-                Refine new scribbles a few seconds after you stop adding them.{" "}
-                {serverKey[draft.provider] && !key.trim() ? "This server has its own key, so yours is optional." : ""}
+                Forge new scribbles a few seconds after you stop adding them.
               </span>
             </span>
           </label>

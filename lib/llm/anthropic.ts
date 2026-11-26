@@ -13,7 +13,14 @@ function supportsEffort(model: string): boolean {
 const EFFORT = (process.env.NOTESMITH_EFFORT as "low" | "medium" | "high" | undefined) ?? "low";
 
 export async function anthropicJson(req: JsonRequest): Promise<JsonResult> {
-  const client = new Anthropic({ apiKey: req.apiKey, maxRetries: 2, timeout: 90_000 });
+  const client = new Anthropic({
+    apiKey: req.apiKey,
+    maxRetries: 2,
+    timeout: 90_000,
+    // NoteSmith has no server: the user's own key goes from their browser
+    // straight to Anthropic, which is what this flag allows.
+    dangerouslyAllowBrowser: true,
+  });
 
   let response: Anthropic.Message;
   try {

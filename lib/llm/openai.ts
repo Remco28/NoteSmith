@@ -2,7 +2,8 @@ import OpenAI from "openai";
 import { LlmError, type JsonRequest, type JsonResult } from "./types";
 
 export async function openaiJson(req: JsonRequest): Promise<JsonResult> {
-  const client = new OpenAI({ apiKey: req.apiKey, maxRetries: 2, timeout: 90_000 });
+  // No server: the key goes from the browser straight to OpenAI.
+  const client = new OpenAI({ apiKey: req.apiKey, maxRetries: 2, timeout: 90_000, dangerouslyAllowBrowser: true });
 
   let completion: OpenAI.Chat.Completions.ChatCompletion;
   try {

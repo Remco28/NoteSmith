@@ -1,6 +1,6 @@
 /**
- * Living Document logic. Pure functions, no I/O, shared by the browser,
- * the server and the eval scripts.
+ * Living Document logic. Pure functions, no I/O, shared by the app and
+ * the eval scripts.
  *
  * The rules that keep the user's scribbles safe live here, in code, not in
  * the prompt:
