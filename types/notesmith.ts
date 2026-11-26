@@ -52,11 +52,33 @@ export interface Note {
   sources: Record<string, string>;
   /** True when the AI could not refine it and the raw text was kept as-is. */
   unrefined?: boolean;
+  /** In a "steps" document: an action to take, numbered in order. Tips, whys and questions are not steps. */
+  step?: boolean;
 }
+
+/**
+ * How the notes are laid out, guessed from how the writer writes, never
+ * from the kind of video:
+ * - steps: numbered steps in order, grouped by stage (a recipe, a method);
+ * - topics: notes grouped by theme (ideas, explanations, opinions).
+ */
+export type DocShape = "steps" | "topics";
+
+/** How a version of the document came about, for the history list. */
+export type DocOrigin = "forge" | "reforge" | "restore";
 
 export interface LivingDocument {
   notes: Note[];
   updatedAt: number | null;
+  /** Missing means "topics" (documents from before shapes existed). */
+  shape?: DocShape;
+  madeBy?: DocOrigin;
+}
+
+/** An earlier version of the Living Document, kept so any change can be undone. */
+export interface DocVersion {
+  id: string;
+  doc: LivingDocument;
 }
 
 export type Provider = "anthropic" | "openai";
@@ -81,10 +103,16 @@ export interface Session {
   video: VideoInfo;
   scribbles: Scribble[];
   doc: LivingDocument;
+  /** What the writer says these notes are for, e.g. "the science behind each technique". Optional. */
+  purpose?: string;
+  /** Earlier versions of the document, oldest first. */
+  history?: DocVersion[];
+  /** The writer undid a change of shape: keep the current one until they ask for a re-forge. */
+  keepShape?: boolean;
   lastOpenedAt: number;
 }
 
-/* ---------- Refine API contract (browser <-> server) ---------- */
+/* ---------- Forging: what goes to the model and what comes back ---------- */
 
 /** A scribble that needs refining. */
 export interface PendingScribble {
@@ -102,6 +130,7 @@ export interface ExistingNote {
   /** The scribbles behind it, as the writer typed them. */
   written: string[];
   detail?: NoteDetail;
+  step?: boolean;
 }
 
 export interface RefineRequest {
@@ -112,6 +141,12 @@ export interface RefineRequest {
   transcript: string;
   notes: ExistingNote[];
   pending: PendingScribble[];
+  /** What the writer says the notes are for, if they said. */
+  purpose?: string;
+  /** The document's shape so far (null: not decided yet). */
+  shape?: DocShape | null;
+  /** True: use `shape` as given. False: the model may change it. */
+  shapeFixed?: boolean;
 }
 
 /** One instruction from the model: a new note, or a merge into an existing one. */
@@ -121,6 +156,8 @@ export interface RefineItem {
   topic: string;
   mergeInto: string | null;
   detail: NoteDetail | null;
+  /** An action to take, in a "steps" document. */
+  step?: boolean;
 }
 
 /** Move an existing note to another topic. Its text never changes. */
@@ -130,6 +167,8 @@ export interface TopicMove {
 }
 
 export interface RefineResponse {
+  /** The shape the model chose for the whole document. */
+  shape: DocShape;
   items: RefineItem[];
   moves: TopicMove[];
   /** Pending ids the model failed to cover even after a retry. */

@@ -23,7 +23,10 @@ Short fades of 120 ms (`--duration`) for interface changes. The only longer anim
 | A refined thought in the document | note | bullet, item |
 | The refined document | Living Document | summary, output |
 | Running the AI | forge, forging, Forge now | generate, update, sync |
-| Rebuilding all notes | Re-forge all | regenerate |
+| Rebuilding all notes | Re-forge | regenerate |
+| How the notes are laid out | numbered steps, by topic | shape, mode, template |
+| What the notes are for | Notes for | purpose, goal, intent |
+| Earlier versions of the document | History, version | snapshot, revision |
 | Notes waiting | "N scribbles waiting" | pending, queued |
 
 ## Hosting
@@ -43,6 +46,9 @@ Short fades of 120 ms (`--duration`) for interface changes. The only longer anim
 - **The whole transcript goes with every forge**, cached for an hour (not the default 5 minutes, which a pause between scribbles would outlast), so notes can use what was said minutes earlier and answers can come from later in the video. A very long video is cut to a window around the scribbles.
 - **Default model: Claude Sonnet 5.5.** In evals on a real user's scribbles it named subjects and kept host and guest apart clearly better than Haiku 5.5, at about twenty times Haiku's price, still well under a dollar for an hour of video.
 - **Corrections** ("actually it was 2B not 20B") replace what they correct and end with "(Corrected from …)". Code guarantees no scribble is dropped (`lib/doc.ts`).
+- **Layout comes from the scribbles, not the video** (decided 2026-11-26). The same cooking video can be a recipe to one person and a science lesson to another, so a layout is never locked to the kind of video. Two shapes: *steps* (actions numbered through the document, grouped by stage; tips and whys among them stay unnumbered) and *topics* (themes). Each forge sends the current shape and the model keeps it unless the scribbles now clearly read otherwise; a change re-forges everything in the new shape. Evals: Frank's stock-video scribbles came out as steps from the first scribble; the same scribbles with "Notes for: the science" came out as topics, with details about why.
+- **"Notes for"** is optional and overrides the guess. It's one line of the writer's own words, not a setting, so it never locks them into a rule.
+- **Every change can be undone.** Each forge run keeps the version before it (20 per video; trimmed first if storage fills up). An automatic re-forge shows an Undo toast; undoing a change of layout also stops NoteSmith changing the layout on its own for that video, until the writer re-forges or changes "Notes for". Re-forge has no confirmation step any more, because it can be undone.
 - **Notes stay put.** Only new or edited scribbles are sent. An existing note is rewritten only when one of its scribbles changes, or when a new scribble continues it.
 - **Auto-forge** runs 4 seconds after the scribbles stop changing. It is on by default and can be turned off in Settings.
 - A scribble is stamped with the video time at the moment you **start typing** it, not when you press Enter. Clicking a time chip jumps to **5 seconds before** that moment, because people write just after hearing something.

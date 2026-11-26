@@ -1,0 +1,52 @@
+{
+  "video": {
+    "id": "czNHTO0lIUI",
+    "title": "All-Day Stock in 15min, No Bones Required (ft. James Hoffmann)",
+    "author": "Chris Young"
+  },
+  "note": "Invented scribbles in Frank's style, for someone learning the science from the same video. No purpose set: the shape should come out as topics.",
+  "scribbles": [
+    {
+      "id": "q1",
+      "time": 125,
+      "batch": 1,
+      "text": "why does ground meat brown so much better than bones? surface area?"
+    },
+    {
+      "id": "q2",
+      "time": 140,
+      "batch": 1,
+      "text": "maillard reaction - what is it exactly"
+    },
+    {
+      "id": "q3",
+      "time": 230,
+      "batch": 2,
+      "text": "breaking up the meat too early = too much liquid, so it steams instead of browns"
+    },
+    {
+      "id": "q4",
+      "time": 255,
+      "batch": 3,
+      "text": "gelatin replaces the collagen you'd get from bones. that's where the body comes from"
+    },
+    {
+      "id": "q5",
+      "time": 320,
+      "batch": 4,
+      "text": "egg white proteins grab the impurities?? how does that work"
+    },
+    {
+      "id": "q6",
+      "time": 515,
+      "batch": 5,
+      "text": "overcooking the raft makes it tighter so easier to strain. clever"
+    },
+    {
+      "id": "q7",
+      "time": 640,
+      "batch": 6,
+      "text": "veal is neutral, that's why demiglace uses it"
+    }
+  ]
+}

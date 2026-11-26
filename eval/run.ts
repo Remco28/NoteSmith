@@ -25,7 +25,7 @@ import {
   transcriptForPrompt,
 } from "@/lib/doc";
 import { refine } from "@/lib/refine/run";
-import type { LivingDocument, Note, Scribble, TranscriptSegment } from "@/types/notesmith";
+import type { DocShape, LivingDocument, Note, Scribble, TranscriptSegment } from "@/types/notesmith";
 
 /* ---------- setup ---------- */
 
@@ -46,6 +46,8 @@ interface FixtureScribble { id: string; time: number; batch: number; text: strin
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8")) as {
   video: { id: string; title: string; author: string };
   scribbles: FixtureScribble[];
+  /** What the writer says the notes are for (optional). */
+  purpose?: string;
 };
 
 async function loadTranscript(videoId: string): Promise<TranscriptSegment[]> {
@@ -59,9 +61,10 @@ async function loadTranscript(videoId: string): Promise<TranscriptSegment[]> {
 
 /* ---------- play the session ---------- */
 
-async function forge(scribbles: Scribble[], doc: LivingDocument, transcript: TranscriptSegment[]) {
+/** One forge, as the app does it. `fixedShape` is a re-forge for a new shape. */
+async function forge(scribbles: Scribble[], doc: LivingDocument, transcript: TranscriptSegment[], fixedShape?: DocShape) {
   const { kept, pending } = planRefine(scribbles, doc);
-  if (pending.length === 0) return { doc: { notes: kept, updatedAt: Date.now() }, ms: 0, tokens: [0, 0, 0] };
+  if (pending.length === 0) return { doc: { ...doc, notes: kept, updatedAt: Date.now() }, ms: 0, tokens: [0, 0, 0], reshape: undefined };
   const t0 = Date.now();
   const res = await refine(
     {
@@ -71,12 +74,20 @@ async function forge(scribbles: Scribble[], doc: LivingDocument, transcript: Tra
       notes: toExistingNotes(kept, scribbles),
       pending: toPending(pending),
       transcript: transcriptForPrompt(transcript, pending.map((s) => s.time)),
+      purpose: fixture.purpose,
+      shape: fixedShape ?? (kept.length ? (doc.shape ?? "topics") : null),
+      shapeFixed: Boolean(fixedShape),
     },
     apiKey!,
   );
-  const notes = applyRefine(kept, pending, res.items, res.moves, transcript.at(-1)?.end);
+  const oldShape = doc.shape ?? "topics";
+  // Like the app: a new shape with notes already there means re-forging them all.
+  const reshape = !fixedShape && kept.length > 0 && res.shape !== oldShape ? res.shape : undefined;
+  const shape = reshape ? oldShape : res.shape;
+  const notes = applyRefine(kept, pending, res.items, res.moves, transcript.at(-1)?.end, shape);
   return {
-    doc: { notes, updatedAt: Date.now() },
+    reshape,
+    doc: { notes, updatedAt: Date.now(), shape } as LivingDocument,
     ms: Date.now() - t0,
     tokens: [res.usage.inputTokens, res.usage.outputTokens, res.usage.cachedTokens ?? 0],
     missing: res.missing,
@@ -203,7 +214,12 @@ async function main() {
     const r = await forge(scribbles, doc, transcript);
     doc = r.doc;
     const changed = [...before.keys()].filter((id) => doc.notes.find((n) => n.id === id)?.text !== before.get(id));
-    stableCheck.push(`round ${b}: ${r.ms} ms, tokens in/out ${r.tokens.join("/")}, earlier notes rewritten: ${changed.length}, moved: ${r.moves ?? 0}`);
+    stableCheck.push(`round ${b}: ${r.ms} ms, tokens in/out ${r.tokens.join("/")}, shape ${doc.shape}, earlier notes rewritten: ${changed.length}, moved: ${r.moves ?? 0}`);
+    if (r.reshape) {
+      const again = await forge(scribbles, emptyDocument(), transcript, r.reshape);
+      doc = again.doc;
+      stableCheck.push(`  re-forged everything as ${r.reshape}: ${again.ms} ms, tokens in/out ${again.tokens.join("/")}`);
+    }
   }
 
   // Edit round
@@ -240,7 +256,7 @@ async function main() {
 
   for (const section of sections(doc, scribbles)) {
     log.push(`### ${section.topic || "(no topic)"}`, "");
-    for (const { note } of section.notes) {
+    for (const { note, number } of section.notes) {
       const srcs = Object.keys(note.sources).map((id) => byId.get(id)!).filter(Boolean);
       const v = verdictById.get(note.id);
       const autoFlags = [lengthFlag(note, srcs), questionFlag(note, srcs), note.unrefined ? "UNREFINED" : null].filter(Boolean);
@@ -255,7 +271,7 @@ async function main() {
       else if (v?.verdict === "minor") minor++;
       else if (v?.verdict === "bad") bad++;
       for (const src of srcs) log.push(`- scribble ${formatTime(src.time)}: ${src.text}`);
-      log.push(`  - **note:** ${note.text}`);
+      log.push(`  - **${number !== undefined ? `step ${number}` : "note"}:** ${note.text}`);
       if (note.detail) {
         const at = note.detail.at !== undefined ? ` @${formatTime(note.detail.at)}` : "";
         log.push(`  - *${note.detail.kind}${at}:* ${note.detail.text}`);
@@ -273,7 +289,7 @@ async function main() {
   const summary =
     `${doc.notes.length} notes from ${scribbles.length} scribbles (${withDetail} with detail) · judge good ${good} / minor ${minor} / bad ${bad}` +
     ` · unfaithful ${unfaithful} · too literal ${literal} · detail: ${tally || "-"} · auto-flags ${flags} · topics ${sections(doc, scribbles).length}`;
-  log.splice(4, 0, `**${summary}**`, "");
+  log.splice(4, 0, `**${summary}**`, "", `Purpose: ${fixture.purpose ?? "(none)"} · final shape: ${doc.shape}`, "");
   fs.mkdirSync("eval/out", { recursive: true });
   const out = path.join("eval/out", `${path.basename(fixturePath, ".json")}-${model}-${Date.now()}.md`);
   fs.writeFileSync(out, log.join("\n"));

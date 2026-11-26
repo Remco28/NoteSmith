@@ -8,6 +8,7 @@ import {
   forgedIds,
   newId,
   planRefine,
+  pushVersion,
   toExistingNotes,
   toMarkdown,
   toPending,
@@ -32,6 +33,7 @@ import { LlmError } from "@/lib/llm/types";
 import { refine } from "@/lib/refine/run";
 import { fetchVideoInfo } from "@/lib/video-info";
 import type {
+  DocShape,
   LivingDocument,
   RefineResponse,
   Session,
@@ -52,12 +54,30 @@ const BATCH = 25;
 /** Auto-forge waits this long after the last change. */
 const AUTO_FORGE_DELAY_MS = 4000;
 
+/** Why everything is being re-forged; it decides the shape and what the Undo message says. */
+type ReforgeReason =
+  | { kind: "button" }
+  | { kind: "shape"; shape: DocShape }
+  | { kind: "purpose"; purpose: string };
+
+function reforgeMessage(why: ReforgeReason): string {
+  if (why.kind === "shape") {
+    return why.shape === "steps"
+      ? "Your scribbles read like steps now, so the notes became numbered steps"
+      : "Your scribbles read like ideas, not steps, so the notes are grouped by topic";
+  }
+  if (why.kind === "purpose") return `Re-forged the notes for “${why.purpose}”`;
+  return "Re-forged all your notes";
+}
+
 type TranscriptState = {
   /** missing: not loaded yet; the bookmark loads it. unavailable: the bookmark found none. */
   status: "loading" | "ready" | "missing" | "unavailable";
   segments: TranscriptSegment[];
   message: string | null;
 };
+
+const EMPTY: Set<string> = new Set();
 
 const emptyTranscript: TranscriptState = { status: "loading", segments: [], message: null };
 
@@ -115,6 +135,8 @@ export function Workspace() {
   const [hoverFrom, setHoverFrom] = useState<"scribbles" | "doc" | null>(null);
   const [lastAddedId, setLastAddedId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // An earlier version of the document being looked at (its id in the history).
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const { toasts, show, dismiss } = useToasts();
   const narrow = useNarrow();
 
@@ -127,6 +149,8 @@ export function Workspace() {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const forgingRef = useRef(false);
+  // What Ctrl+Z (or a toast's Undo) undoes right now, if anything.
+  const undoRef = useRef<(() => void) | null>(null);
   // What the bookmark just brought in, kept here too in case storage is full.
   const importedRef = useRef<{ id: string; segments: TranscriptSegment[] } | null>(null);
 
@@ -229,12 +253,14 @@ export function Workspace() {
     setForgeError(null);
     setFreshIds(new Set());
     setLastAddedId(null);
+    setPreviewId(null);
   }, []);
 
   const closeVideo = useCallback(() => {
     if (sessionRef.current) saveSession(sessionRef.current);
     saveCurrentVideoId(null);
     setSession(null);
+    setPreviewId(null);
     setSessions(listSessions());
     setTranscript(emptyTranscript);
   }, []);
@@ -266,9 +292,29 @@ export function Workspace() {
 
   /* ---------- forging ---------- */
 
+  const forgeRef = useRef<(mode?: "new" | "all", why?: ReforgeReason) => Promise<void>>(async () => {});
+  // A re-forge asked for while another forge was running; it runs next.
+  const queuedRef = useRef<ReforgeReason | null>(null);
+  // The document the last forge saved. React applies it on its next render, so a
+  // forge that starts right after another waits for it instead of reading the old one.
+  const committedRef = useRef<LivingDocument | null>(null);
+
+  /** Put an earlier version back. The version being replaced goes into the history, so this can be undone too. */
+  const restoreDoc = useCallback((doc: LivingDocument) => {
+    setSession((s) =>
+      s ? { ...s, doc: { ...doc, madeBy: "restore", updatedAt: Date.now() }, history: pushVersion(s.history, s.doc) } : s,
+    );
+    setFreshIds(new Set());
+    setPreviewId(null);
+  }, []);
+
   const forge = useCallback(
-    async (mode: "new" | "all" = "new") => {
-      if (forgingRef.current || !sessionRef.current) return;
+    async (mode: "new" | "all" = "new", why: ReforgeReason = { kind: "button" }) => {
+      if (!sessionRef.current) return;
+      if (forgingRef.current) {
+        if (mode === "all") queuedRef.current = why;
+        return;
+      }
       forgingRef.current = true;
       setForging(true);
       setForgeError(null);
@@ -277,9 +323,35 @@ export function Workspace() {
       for (let i = 0; i < 40 && transcriptRef.current.status === "loading"; i++) {
         await new Promise((r) => setTimeout(r, 250));
       }
-      let base: LivingDocument = mode === "all" ? emptyDocument() : sessionRef.current.doc;
+      for (let i = 0; i < 100 && committedRef.current && sessionRef.current?.doc !== committedRef.current; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      committedRef.current = null;
+      if (!sessionRef.current || sessionRef.current.video.id !== forVideo) {
+        forgingRef.current = false;
+        setForging(false);
+        return;
+      }
+      // Kept so this whole run can be undone, and added to the history once it changes anything.
+      const before = sessionRef.current.doc;
+      let base: LivingDocument = mode === "all" ? emptyDocument() : before;
       const total = planRefine(sessionRef.current.scribbles, base).pending.length;
       let done = 0;
+      let saved = false;
+      let finished = false;
+      // The shape: a re-forge for a new shape uses it; otherwise the model may choose,
+      // and after the first batch of a run it stays put.
+      let shape: DocShape | null =
+        mode === "all" ? (why.kind === "shape" ? why.shape : null) : before.notes.length ? (before.shape ?? "topics") : null;
+      let shapeFixed =
+        (mode === "all" && why.kind === "shape") ||
+        (mode === "new" && shape !== null && Boolean(sessionRef.current.keepShape));
+      // Asking for a re-forge lets NoteSmith choose the shape again.
+      if (mode === "all" && why.kind !== "shape" && sessionRef.current.keepShape) {
+        setSession((s) => (s && s.video.id === forVideo ? { ...s, keepShape: false } : s));
+      }
+      // A forge that finds the notes have become a different shape re-forges everything in it.
+      let reshapeTo: DocShape | null = null;
 
       try {
         for (let round = 0; round < Math.ceil(total / BATCH) + 3; round++) {
@@ -287,8 +359,10 @@ export function Workspace() {
           if (!current || current.video.id !== forVideo) return;
           const { kept, pending } = planRefine(current.scribbles, base);
           if (pending.length === 0) {
-            const finalDoc = { notes: kept, updatedAt: Date.now() };
+            const finalDoc: LivingDocument = { ...base, notes: kept, updatedAt: Date.now() };
+            committedRef.current = finalDoc;
             setSession((s) => (s && s.video.id === forVideo ? { ...s, doc: finalDoc } : s));
+            finished = true;
             break;
           }
           const batch = pending.slice(0, BATCH);
@@ -313,6 +387,9 @@ export function Workspace() {
                 video: { title: current.video.title, author: current.video.author },
                 notes: toExistingNotes(kept, current.scribbles),
                 pending: toPending(batch),
+                purpose: current.purpose,
+                shape,
+                shapeFixed,
                 transcript: transcriptForPrompt(
                   transcriptRef.current.segments,
                   batch.map((s) => s.time),
@@ -336,24 +413,40 @@ export function Workspace() {
             break;
           }
 
-          const before = new Map(base.notes.map((n) => [n.id, n.text]));
+          if (!shapeFixed) {
+            // Notes already there were written for the old shape: re-forge them all for the new one.
+            if (mode === "new" && kept.length > 0 && shape && body.shape !== shape) reshapeTo = body.shape;
+            else shape = body.shape;
+            shapeFixed = true;
+          }
+          const docShape: DocShape = shape ?? body.shape;
+          const textBefore = new Map(base.notes.map((n) => [n.id, n.text]));
           const notes = applyRefine(
             kept,
             batch,
             body.items ?? [],
             body.moves ?? [],
             transcriptRef.current.segments.at(-1)?.end,
+            docShape,
           );
-          base = { notes, updatedAt: Date.now() };
+          const madeBy = mode === "all" ? "reforge" : "forge";
+          base = { notes, updatedAt: Date.now(), shape: docShape, madeBy };
           done += batch.length;
-          const fresh = new Set(notes.filter((n) => before.get(n.id) !== n.text).map((n) => n.id));
+          const fresh = new Set(notes.filter((n) => textBefore.get(n.id) !== n.text).map((n) => n.id));
           setFreshIds(fresh);
           const notesNow = sessionRef.current?.doc.notes ?? [];
           const ours = new Set(notes.map((n) => n.id));
           const arrived = notesNow.filter((n) => !startIds.has(n.id) && !ours.has(n.id));
-          base = { notes: [...notes, ...arrived], updatedAt: Date.now() };
+          base = { ...base, notes: [...notes, ...arrived] };
           const committed = base;
-          setSession((s) => (s && s.video.id === forVideo ? { ...s, doc: committed } : s));
+          committedRef.current = committed;
+          const first = !saved;
+          saved = true;
+          setSession((s) =>
+            s && s.video.id === forVideo
+              ? { ...s, doc: committed, history: first ? pushVersion(s.history, before) : s.history }
+              : s,
+          );
         }
       } catch {
         setForgeError({ message: "Something went wrong while forging.", needsKey: false });
@@ -362,9 +455,36 @@ export function Workspace() {
         setForging(false);
         setProgress(null);
       }
+
+      const sameVideo = sessionRef.current?.video.id === forVideo;
+      if (sameVideo && finished && reshapeTo) {
+        void forgeRef.current("all", { kind: "shape", shape: reshapeTo });
+        return;
+      }
+      if (sameVideo && finished && mode === "all" && saved) {
+        if (before.notes.length > 0) {
+          const undo = () => {
+            if (undoRef.current === undo) undoRef.current = null;
+            restoreDoc(before);
+            // Undoing a change of shape means "keep it the way it was": stop changing it on its own.
+            if (why.kind === "shape") {
+              setSession((s) => (s && s.video.id === forVideo ? { ...s, keepShape: true } : s));
+            }
+          };
+          undoRef.current = undo;
+          setTimeout(() => {
+            if (undoRef.current === undo) undoRef.current = null;
+          }, 10000);
+          show({ text: reforgeMessage(why), action: { label: "Undo", run: undo } });
+        }
+      }
+      const queued = queuedRef.current;
+      queuedRef.current = null;
+      if (sameVideo && queued) void forgeRef.current("all", queued);
     },
-    [],
+    [restoreDoc, show],
   );
+  forgeRef.current = forge;
 
   // Auto-forge a few seconds after the scribbles settle.
   useEffect(() => {
@@ -372,6 +492,22 @@ export function Workspace() {
     const t = setTimeout(() => forge("new"), AUTO_FORGE_DELAY_MS);
     return () => clearTimeout(t);
   }, [settings.autoForge, canForge, forgeError, scribbles, forge]);
+
+  /** Say what the notes are for. With notes already there, they're re-forged to fit. */
+  const setPurpose = useCallback(
+    (text: string) => {
+      const s = sessionRef.current;
+      if (!s) return;
+      const purpose = text.trim().replace(/\s+/g, " ").slice(0, 200);
+      if (purpose === (s.purpose ?? "")) return;
+      const next: Session = { ...s, purpose: purpose || undefined };
+      sessionRef.current = next;
+      setSession(next);
+      // Clearing it changes nothing on the page; the next forge goes back to guessing.
+      if (purpose && next.doc.notes.length > 0) void forge("all", { kind: "purpose", purpose });
+    },
+    [forge],
+  );
 
   /* ---------- scribble actions ---------- */
 
@@ -386,8 +522,6 @@ export function Workspace() {
   const editScribble = useCallback((id: string, text: string) => {
     setSession((s) => (s ? { ...s, scribbles: s.scribbles.map((x) => (x.id === id ? { ...x, text } : x)) } : s));
   }, []);
-
-  const undoRef = useRef<(() => void) | null>(null);
 
   const deleteScribble = useCallback(
     (id: string) => {
@@ -447,10 +581,15 @@ export function Workspace() {
 
   /* ---------- export ---------- */
 
+  const previewIdRef = useRef(previewId);
+  previewIdRef.current = previewId;
   const markdown = useCallback(() => {
     const s = sessionRef.current!;
-    return toMarkdown(s.doc, s.scribbles, s.video, {
+    // Export what's on screen: an earlier version while one is being viewed.
+    const shown = s.history?.find((v) => v.id === previewIdRef.current)?.doc ?? s.doc;
+    return toMarkdown(shown, s.scribbles, s.video, {
       includeScribbles: true,
+      purpose: s.purpose,
     });
   }, []);
 
@@ -589,9 +728,18 @@ export function Workspace() {
       follow={hoverFrom === "doc"}
     />
   );
+  const history = session.history ?? [];
+  const preview = previewId ? history.find((v) => v.id === previewId) ?? null : null;
   const docPanel = (
     <DocPanel
-      doc={doc}
+      doc={preview?.doc ?? doc}
+      current={doc}
+      history={history}
+      previewing={preview}
+      onPreview={setPreviewId}
+      onRestore={(v) => restoreDoc(v.doc)}
+      purpose={session.purpose ?? ""}
+      onPurpose={setPurpose}
       scribbles={scribbles}
       forging={forging}
       progress={progress}
@@ -599,8 +747,8 @@ export function Workspace() {
       waiting={pendingIds.size}
       canForge={canForge}
       autoForge={settings.autoForge}
-      freshIds={freshIds}
-      staleIds={staleIds}
+      freshIds={preview ? EMPTY : freshIds}
+      staleIds={preview ? EMPTY : staleIds}
       highlightIds={hoverIds}
       onForge={() => forge("new")}
       onReforgeAll={() => forge("all")}

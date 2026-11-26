@@ -9,7 +9,7 @@ import { openaiJson } from "@/lib/llm/openai";
 import { LlmError, type JsonRequest, type JsonResult } from "@/lib/llm/types";
 import { parseTime } from "@/lib/doc";
 import { OUTPUT_SCHEMA, SYSTEM_PROMPT, buildTranscriptBlock, buildUserPrompt } from "@/lib/refine/prompt";
-import type { Provider, RefineItem, RefineRequest, RefineResponse, TopicMove } from "@/types/notesmith";
+import type { DocShape, Provider, RefineItem, RefineRequest, RefineResponse, TopicMove } from "@/types/notesmith";
 
 /** Most scribbles a single request may carry. The browser sends larger sets in batches. */
 export const MAX_PENDING_PER_REQUEST = 30;
@@ -22,8 +22,10 @@ const ItemSchema = z.object({
   detailKind: z.enum(["none", "video", "answer", "general"]).catch("none"),
   detail: z.string().default(""),
   detailAt: z.string().default(""),
+  step: z.boolean().catch(false),
 });
 const AnswerSchema = z.object({
+  shape: z.enum(["steps", "topics"]).catch("topics"),
   items: z.array(ItemSchema),
   moves: z.array(z.object({ noteId: z.string(), topic: z.string() })).default([]),
 });
@@ -39,7 +41,11 @@ async function callOnce(req: RefineRequest, apiKey: string) {
     apiKey,
     system: SYSTEM_PROMPT,
     context: buildTranscriptBlock(req.video, req.transcript),
-    user: buildUserPrompt(req.notes, req.pending),
+    user: buildUserPrompt(req.notes, req.pending, {
+      purpose: req.purpose,
+      shape: req.shape,
+      shapeFixed: req.shapeFixed,
+    }),
     schema: OUTPUT_SCHEMA as unknown as Record<string, unknown>,
     // A note plus its detail is under 150 tokens; this fits 30 with room to spare.
     maxTokens: 12000,
@@ -57,8 +63,10 @@ async function callOnce(req: RefineRequest, apiKey: string) {
       it.detailKind !== "none" && it.detail.trim()
         ? { kind: it.detailKind, text: it.detail.trim(), at: parseTime(it.detailAt) }
         : null,
+    step: it.step,
   }));
-  return { items, moves: parsed.data.moves as TopicMove[], usage: result.usage };
+  const shape: DocShape = req.shape && req.shapeFixed ? req.shape : parsed.data.shape;
+  return { shape, items, moves: parsed.data.moves as TopicMove[], usage: result.usage };
 }
 
 function coveredIds(items: RefineItem[], allowed: Set<string>): Set<string> {
@@ -82,7 +90,8 @@ export async function refine(req: RefineRequest, apiKey: string): Promise<Refine
 
   if (missingFirst.length > 0) {
     try {
-      const retry = await callOnce({ ...req, pending: missingFirst }, apiKey);
+      // The retry keeps the shape the first answer chose.
+      const retry = await callOnce({ ...req, pending: missingFirst, shape: first.shape, shapeFixed: true }, apiKey);
       usage.inputTokens += retry.usage.inputTokens;
       usage.outputTokens += retry.usage.outputTokens;
       usage.cachedTokens += retry.usage.cachedTokens ?? 0;
@@ -95,6 +104,7 @@ export async function refine(req: RefineRequest, apiKey: string): Promise<Refine
 
   const noteIds = new Set(req.notes.map((n) => n.id));
   return {
+    shape: first.shape,
     items,
     moves: first.moves.filter((m) => noteIds.has(m.noteId) && m.topic.trim()),
     missing: req.pending.filter((p) => !covered.has(p.id)).map((p) => p.id),

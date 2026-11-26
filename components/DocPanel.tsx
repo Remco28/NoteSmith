@@ -3,8 +3,8 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { formatTime, sections } from "@/lib/doc";
 import { revealInPanel } from "@/lib/scroll";
-import type { LivingDocument, NoteDetail, Scribble } from "@/types/notesmith";
-import { AlertIcon, CopyIcon, DownloadIcon, HammerIcon, RefreshIcon } from "./icons";
+import type { DocVersion, LivingDocument, NoteDetail, Scribble } from "@/types/notesmith";
+import { AlertIcon, CopyIcon, DownloadIcon, HammerIcon, HistoryIcon, RefreshIcon } from "./icons";
 import { Smith } from "./Smith";
 
 /** Jumping to a note's moment starts a few seconds early: people write after hearing. */
@@ -37,8 +37,35 @@ const EMBERS = [
   { left: "88%", delay: "0.6s", drift: "7px" },
 ];
 
+const MADE_BY: Record<NonNullable<LivingDocument["madeBy"]>, string> = {
+  forge: "Forged",
+  reforge: "Re-forged",
+  restore: "Restored",
+};
+
+function when(at: number | null): string {
+  if (!at) return "Earlier";
+  const d = new Date(at);
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return d.toDateString() === new Date().toDateString()
+    ? time
+    : `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+}
+
+function describe(doc: LivingDocument): string {
+  const n = doc.notes.length;
+  return `${MADE_BY[doc.madeBy ?? "forge"]} · ${n} note${n === 1 ? "" : "s"} · ${doc.shape === "steps" ? "steps" : "topics"}`;
+}
+
 export function DocPanel({
   doc,
+  current,
+  history,
+  previewing,
+  onPreview,
+  onRestore,
+  purpose,
+  onPurpose,
   scribbles,
   forging,
   progress,
@@ -58,7 +85,15 @@ export function DocPanel({
   follow,
   onOpenSettings,
 }: {
+  /** What's shown: the current document, or an earlier version being viewed. */
   doc: LivingDocument;
+  current: LivingDocument;
+  history: DocVersion[];
+  previewing: DocVersion | null;
+  onPreview: (id: string | null) => void;
+  onRestore: (version: DocVersion) => void;
+  purpose: string;
+  onPurpose: (text: string) => void;
   scribbles: Scribble[];
   forging: boolean;
   progress: string | null;
@@ -79,7 +114,7 @@ export function DocPanel({
   follow: boolean;
   onOpenSettings: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // Show text labels on the toolbar only when the panel itself is wide enough.
   const panelRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -96,15 +131,16 @@ export function DocPanel({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const confirmRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
   const parts = sections(doc, scribbles);
   const hasNotes = doc.notes.length > 0;
+  const stepsDoc = doc.shape === "steps";
 
   useEffect(() => {
-    if (!confirming) return;
+    if (!historyOpen) return;
     const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !confirmRef.current?.contains(e.target as Node)) {
-        setConfirming(false);
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !historyRef.current?.contains(e.target as Node)) {
+        setHistoryOpen(false);
       }
     };
     document.addEventListener("mousedown", close);
@@ -113,7 +149,17 @@ export function DocPanel({
       document.removeEventListener("mousedown", close);
       document.removeEventListener("keydown", close);
     };
-  }, [confirming]);
+  }, [historyOpen]);
+
+  // Escape leaves an earlier version and goes back to the current one.
+  useEffect(() => {
+    if (!previewing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !historyOpen) onPreview(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [previewing, historyOpen, onPreview]);
 
   let status: ReactNode;
   if (forging) {
@@ -146,40 +192,71 @@ export function DocPanel({
           <HammerIcon size={15} />
           {forging ? "Forging…" : "Forge now"}
         </button>
-        <div className="relative" ref={confirmRef}>
+        <button
+          type="button"
+          className={`btn-icon ${wide ? "w-auto gap-1.5 px-2 text-body" : ""}`}
+          onClick={onReforgeAll}
+          disabled={forging || scribbles.length === 0}
+          title="Re-forge every note from scratch, choosing the layout again. You can undo it."
+          aria-label="Re-forge every note from scratch"
+        >
+          <RefreshIcon size={16} />
+          <span className={wide ? "" : "sr-only"}>Re-forge</span>
+        </button>
+        <div className="relative" ref={historyRef}>
           <button
             type="button"
-            className={`btn-icon ${wide ? "w-auto gap-1.5 px-2 text-body" : ""}`}
-            onClick={() => setConfirming((v) => !v)}
-            disabled={forging || scribbles.length === 0}
-            title="Re-forge everything from scratch…"
-            aria-label="Re-forge everything from scratch"
-            aria-expanded={confirming}
+            className={`btn-icon ${wide ? "w-auto gap-1.5 px-2 text-body" : ""} ${historyOpen || previewing ? "bg-raised text-ink" : ""}`}
+            onClick={() => setHistoryOpen((v) => !v)}
+            disabled={history.length === 0}
+            title={history.length ? "Earlier versions of this document" : "Earlier versions appear here after the next forge"}
+            aria-label="Earlier versions of this document"
+            aria-expanded={historyOpen}
           >
-            <RefreshIcon size={16} />
-            <span className={wide ? "" : "sr-only"}>Re-forge</span>
+            <HistoryIcon size={16} />
+            <span className={wide ? "" : "sr-only"}>History</span>
           </button>
-          {confirming && (
-            <div className="fade-in absolute right-0 top-10 z-20 w-72 rounded-md border border-border-strong bg-raised p-3 shadow-xl shadow-black/40">
-              <p className="text-body text-ink">Re-forge every note from scratch?</p>
-              <p className="mt-1 text-caption text-muted">
-                Your scribbles stay exactly as they are. Notes and topics are rebuilt, so their wording may change.
+          {historyOpen && (
+            <div className="fade-in absolute right-0 top-10 z-20 w-80 rounded-md border border-border-strong bg-raised py-2 shadow-xl shadow-black/40">
+              <p className="px-3 pb-1 text-caption text-muted">
+                Every forge keeps the version before it. Pick one to look at it.
               </p>
-              <div className="mt-3 flex justify-end gap-2">
-                <button type="button" className="btn btn-secondary" onClick={() => setConfirming(false)}>
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    setConfirming(false);
-                    onReforgeAll();
-                  }}
-                >
-                  Re-forge all
-                </button>
-              </div>
+              <ul className="max-h-80 overflow-y-auto">
+                <li>
+                  <button
+                    type="button"
+                    className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition-colors hover:bg-border ${
+                      previewing ? "" : "bg-accent-soft"
+                    }`}
+                    style={{ transitionDuration: "var(--duration)" }}
+                    onClick={() => {
+                      onPreview(null);
+                      setHistoryOpen(false);
+                    }}
+                  >
+                    <span className="text-body text-ink">Now</span>
+                    <span className="text-caption text-muted">{describe(current)}</span>
+                  </button>
+                </li>
+                {[...history].reverse().map((v) => (
+                  <li key={v.id}>
+                    <button
+                      type="button"
+                      className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition-colors hover:bg-border ${
+                        previewing?.id === v.id ? "bg-accent-soft" : ""
+                      }`}
+                      style={{ transitionDuration: "var(--duration)" }}
+                      onClick={() => {
+                        onPreview(v.id);
+                        setHistoryOpen(false);
+                      }}
+                    >
+                      <span className="text-body text-ink">{when(v.doc.updatedAt)}</span>
+                      <span className="text-caption text-muted">{describe(v.doc)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
@@ -207,7 +284,25 @@ export function DocPanel({
         </button>
       </header>
 
-      {error && (
+      <PurposeRow purpose={purpose} onPurpose={onPurpose} shape={hasNotes ? (current.shape ?? "topics") : null} />
+
+      {previewing && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-accent-soft px-3 py-2 text-body" role="status">
+          <HistoryIcon size={16} className="shrink-0 text-accent" />
+          <p className="min-w-0 flex-1 text-ink">
+            Looking at the version from {when(previewing.doc.updatedAt)}.{" "}
+            <span className="text-muted">Nothing changes unless you restore it.</span>
+          </p>
+          <button type="button" className="btn btn-secondary h-7" onClick={() => onPreview(null)}>
+            Back to now
+          </button>
+          <button type="button" className="btn btn-primary h-7" onClick={() => onRestore(previewing)}>
+            Restore this version
+          </button>
+        </div>
+      )}
+
+      {error && !previewing && (
         <div className="flex shrink-0 items-start gap-2 border-b border-border bg-danger-soft px-3 py-2 text-body" role="alert">
           <AlertIcon size={16} className="mt-0.5 shrink-0 text-danger" />
           <p className="min-w-0 flex-1 text-ink">
@@ -243,7 +338,7 @@ export function DocPanel({
                   </h3>
                 )}
                 <ul className="space-y-1">
-                  {section.notes.map(({ note, times }) => {
+                  {section.notes.map(({ note, times, number }) => {
                     const ids = Object.keys(note.sources);
                     const lit = ids.some((id) => highlightIds.has(id));
                     const stale = staleIds.has(note.id);
@@ -259,7 +354,15 @@ export function DocPanel({
                         onMouseEnter={() => onHover(ids)}
                         onMouseLeave={() => onHover(null)}
                       >
-                        <span className="mt-[11px] h-1.5 w-1.5 shrink-0 bg-accent" aria-hidden />
+                        {number !== undefined ? (
+                          <span className="w-6 shrink-0 text-right font-doc text-doc tabular-nums text-accent">
+                            {number}.
+                          </span>
+                        ) : (
+                          <span className={stepsDoc ? "flex w-6 shrink-0 justify-end" : "contents"} aria-hidden>
+                            <span className="mt-[11px] h-1.5 w-1.5 shrink-0 bg-accent" />
+                          </span>
+                        )}
                         <div className="min-w-0 flex-1">
                           <span className="note-text font-doc text-doc text-ink">{renderInline(note.text)}</span>
                           {note.unrefined && (
@@ -346,5 +449,67 @@ function Detail({ detail, onSeek }: { detail: NoteDetail; onSeek: (t: number) =>
         </button>
       )}
     </p>
+  );
+}
+
+/**
+ * What the notes are for, in the writer's words. Optional: left empty,
+ * NoteSmith guesses from the scribbles. Saved on Enter or when the box loses focus.
+ */
+function PurposeRow({
+  purpose,
+  onPurpose,
+  shape,
+}: {
+  purpose: string;
+  onPurpose: (text: string) => void;
+  shape: "steps" | "topics" | null;
+}) {
+  const [draft, setDraft] = useState(purpose);
+  useEffect(() => setDraft(purpose), [purpose]);
+  const commit = () => {
+    if (draft.trim() !== purpose.trim()) onPurpose(draft);
+  };
+
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1">
+      <label htmlFor="notes-purpose" className="shrink-0 text-caption text-faint">
+        Notes for
+      </label>
+      <input
+        id="notes-purpose"
+        value={draft}
+        maxLength={200}
+        spellCheck
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          } else if (e.key === "Escape") {
+            e.stopPropagation();
+            setDraft(purpose);
+            requestAnimationFrame(() => (e.target as HTMLInputElement).blur());
+          }
+        }}
+        placeholder="Optional: what you want from them, e.g. the science behind each technique"
+        title="Say what these notes are for, and NoteSmith lays them out and fills them in to fit. Left empty, it guesses from your scribbles. Changing it re-forges the notes."
+        className="h-7 min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1.5 text-body text-ink transition-colors placeholder:text-faint hover:border-border focus:border-accent focus:bg-sunken focus:outline-none"
+        style={{ transitionDuration: "var(--duration)" }}
+      />
+      {shape && (
+        <span
+          className="hidden shrink-0 text-caption text-faint md:inline"
+          title={
+            purpose.trim()
+              ? "Chosen to fit what the notes are for."
+              : "Guessed from how you write your scribbles. Say what the notes are for to change it."
+          }
+        >
+          {shape === "steps" ? "Numbered steps" : "By topic"}
+        </span>
+      )}
+    </div>
   );
 }

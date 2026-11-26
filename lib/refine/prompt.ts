@@ -5,7 +5,7 @@
  */
 
 import { formatTime } from "@/lib/doc";
-import type { ExistingNote, PendingScribble } from "@/types/notesmith";
+import type { DocShape, ExistingNote, PendingScribble } from "@/types/notesmith";
 
 export const SYSTEM_PROMPT = `You are the forging step inside NoteSmith. Someone is watching a video and jotting quick, messy scribbles as they think. You turn each scribble into a note in a document they will reread later, without rewatching the video. You have the video's transcript.
 
@@ -49,8 +49,15 @@ Who said it: in the transcript, ">>" marks a change of speaker. In an interview,
 
 Where to look: people write just after hearing something, so the passage a scribble is about is usually in the minute or two before its time, sometimes earlier. A "detail" may use anything in the transcript, but must fit what the writer was reacting to.
 
+Shape: decide what the writer is making, from how they write, not from the kind of video. The same cooking video can be a recipe to one person and a lesson in food science to another.
+- "steps": the writer is mostly noting what to do, in order: a recipe, a method, setup instructions ("brown the meat first", "then add the gelatin"). Each note that is an action to take has "step": true; steps are numbered in the order they're done. Keep the writer's wording, which is usually an instruction already. Notes that aren't actions (a tip, a reason, a question, an opinion) have "step": false and sit with the steps they belong to. Topics are the stages of the process, in order ("Browning the meat", "Clarifying").
+- "topics": everything else: ideas, explanations, opinions, questions, how and why something works. Every note has "step": false. Topics are themes, like chapters.
+- If the writer said what the notes are for, that decides the shape, and it also decides which details are worth adding: someone learning the science wants the why and how it works; someone following a recipe wants amounts, temperatures and timing.
+- Otherwise, with a current shape given, keep it unless the scribbles now clearly show the writer is making something else. With no shape yet, choose from the scribbles you have.
+- When told to use a shape, use it.
+
 Topics:
-- Give every note a short topic of 1 to 4 words naming a theme of the conversation, like a chapter. Several notes share each topic. Aim to stay within the topic limit given with the scribbles.
+- Give every note a short topic of 1 to 4 words: a stage of the process for "steps", a theme for "topics". Several notes share each topic. Aim to stay within the topic limit given with the scribbles.
 - Reuse an existing topic, spelled exactly the same, when the note genuinely belongs to it. Never put a note under a topic it doesn't belong to just to keep the count down.
 - Never use the video's main speaker or the video's overall subject as a topic. Everything is about them, so it groups nothing.
 - You may move existing notes to another topic (in "moves") when that clearly improves the grouping; otherwise leave "moves" empty.
@@ -74,6 +81,7 @@ Examples (scribble -> text | detailKind: detail):
 export const OUTPUT_SCHEMA = {
   type: "object",
   properties: {
+    shape: { type: "string", enum: ["steps", "topics"] },
     items: {
       type: "array",
       items: {
@@ -86,8 +94,9 @@ export const OUTPUT_SCHEMA = {
           detailKind: { type: "string", enum: ["none", "video", "answer", "general"] },
           detail: { type: "string" },
           detailAt: { type: "string" },
+          step: { type: "boolean" },
         },
-        required: ["sourceIds", "mergeInto", "topic", "text", "detailKind", "detail", "detailAt"],
+        required: ["sourceIds", "mergeInto", "topic", "text", "detailKind", "detail", "detailAt", "step"],
         additionalProperties: false,
       },
     },
@@ -101,7 +110,7 @@ export const OUTPUT_SCHEMA = {
       },
     },
   },
-  required: ["items", "moves"],
+  required: ["shape", "items", "moves"],
   additionalProperties: false,
 } as const;
 
@@ -123,8 +132,24 @@ export function buildTranscriptBlock(video: { title: string | null; author: stri
   );
 }
 
-export function buildUserPrompt(notes: ExistingNote[], pending: PendingScribble[]): string {
+export interface PromptOptions {
+  purpose?: string;
+  shape?: DocShape | null;
+  shapeFixed?: boolean;
+}
+
+export function buildUserPrompt(notes: ExistingNote[], pending: PendingScribble[], opts: PromptOptions = {}): string {
   const parts: string[] = [];
+
+  const purpose = opts.purpose?.trim();
+  parts.push(
+    purpose
+      ? `The writer says these notes are for: "${escape(purpose)}"`
+      : "The writer hasn't said what these notes are for.",
+  );
+  if (opts.shape && opts.shapeFixed) parts.push(`Shape: use "${opts.shape}".`);
+  else if (opts.shape) parts.push(`Current shape: "${opts.shape}".`);
+  else parts.push("Shape: not chosen yet.");
 
   if (notes.length > 0) {
     const topics = [...new Set(notes.map((n) => n.topic).filter(Boolean))];
@@ -136,7 +161,8 @@ export function buildUserPrompt(notes: ExistingNote[], pending: PendingScribble[
             const when = n.times.length ? n.times.map(formatTime).join(", ") : "?";
             const written = (n.written ?? []).map((w) => `"${escape(w)}"`).join(" + ");
             const detail = n.detail ? ` | ${n.detail.kind}: ${escape(n.detail.text)}` : "";
-            return `- id=${n.id} | ${when} | topic "${n.topic}" | ${escape(n.text)}${detail}${written ? ` | written as: ${written}` : ""}`;
+            const step = n.step ? " | step" : "";
+            return `- id=${n.id} | ${when} | topic "${n.topic}"${step} | ${escape(n.text)}${detail}${written ? ` | written as: ${written}` : ""}`;
           })
           .join("\n"),
     );

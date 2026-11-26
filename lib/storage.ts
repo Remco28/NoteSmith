@@ -2,7 +2,7 @@
  * Browser persistence. Everything lives in localStorage:
  *   notesmith:settings          provider, models, API keys, preferences
  *   notesmith:current           id of the open video
- *   notesmith:session:<videoId> scribbles + Living Document for one video
+ *   notesmith:session:<videoId> scribbles, Living Document and its history for one video
  *   notesmith:transcript:<id>   cached captions (only the most recent few)
  *
  * Every access is wrapped: private windows and full storage must never
@@ -103,8 +103,17 @@ export function loadSession(videoId: string): Session | null {
   if ((s.version ?? 1) < SESSION_VERSION) return { ...s, doc: { notes: [], updatedAt: null } };
   return s;
 }
-export const saveSession = (session: Session) =>
-  write(`session:${session.video.id}`, { ...session, version: SESSION_VERSION });
+export function saveSession(session: Session): boolean {
+  const key = `session:${session.video.id}`;
+  if (write(key, { ...session, version: SESSION_VERSION })) return true;
+  // Storage full: older versions of the document go first, never the scribbles or notes.
+  const history = session.history ?? [];
+  for (const keep of [5, 0]) {
+    if (history.length <= keep && keep > 0) continue;
+    if (write(key, { ...session, history: history.slice(history.length - keep), version: SESSION_VERSION })) return true;
+  }
+  return false;
+}
 export function deleteSession(videoId: string) {
   remove(`session:${videoId}`);
   remove(`transcript:${videoId}`);

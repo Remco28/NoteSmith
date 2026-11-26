@@ -11,6 +11,8 @@
  */
 
 import type {
+  DocShape,
+  DocVersion,
   ExistingNote,
   LivingDocument,
   Note,
@@ -153,6 +155,7 @@ export function toExistingNotes(notes: Note[], scribbles: Scribble[]): ExistingN
     times: noteTimes(n, scribbles),
     written: Object.values(n.sources),
     ...(n.detail ? { detail: n.detail } : {}),
+    ...(n.step ? { step: true } : {}),
   }));
 }
 
@@ -215,10 +218,16 @@ export function applyRefine(
   items: RefineItem[],
   moves: TopicMove[] = [],
   videoEnd?: number,
+  shape: DocShape = "topics",
 ): Note[] {
   const pendingById = new Map(pending.map((s) => [s.id, s]));
   const used = new Set<string>();
-  const notes = kept.map((n) => ({ ...n, sources: { ...n.sources } }));
+  const steps = shape === "steps";
+  const notes = kept.map((n) => {
+    const copy: Note = { ...n, sources: { ...n.sources } };
+    if (!steps) delete copy.step;
+    return copy;
+  });
   const noteById = new Map(notes.map((n) => [n.id, n]));
 
   for (const move of moves) {
@@ -246,10 +255,13 @@ export function applyRefine(
       else delete target.detail;
       target.sources = { ...target.sources, ...sources };
       target.unrefined = false;
+      if (steps && item.step) target.step = true;
+      else delete target.step;
       if (item.topic && cleanTopic(item.topic)) target.topic = cleanTopic(item.topic);
     } else {
       const note: Note = { id: newId("n"), text, topic: cleanTopic(item.topic ?? ""), sources };
       if (detail) note.detail = detail;
+      if (steps && item.step) note.step = true;
       notes.push(note);
       noteById.set(note.id, note);
     }
@@ -274,7 +286,8 @@ export function applyRefine(
 
 export interface TopicSection {
   topic: string;
-  notes: Array<{ note: Note; times: number[] }>;
+  /** `number` is the step number, in a "steps" document. */
+  notes: Array<{ note: Note; times: number[]; number?: number }>;
 }
 
 /**
@@ -298,9 +311,16 @@ export function sections(doc: LivingDocument, scribbles: Scribble[]): TopicSecti
     section.notes.sort((a, b) => (a.times[0] ?? 0) - (b.times[0] ?? 0));
   }
 
-  return [...byTopic.entries()]
+  const ordered = [...byTopic.entries()]
     .sort((a, b) => firstTime.get(a[0])! - firstTime.get(b[0])!)
     .map(([, s]) => s);
+
+  // Steps are numbered through the whole document, not per stage.
+  if (doc.shape === "steps") {
+    let n = 0;
+    for (const section of ordered) for (const entry of section.notes) if (entry.note.step) entry.number = ++n;
+  }
+  return ordered;
 }
 
 /* ---------- Export ---------- */
@@ -329,21 +349,30 @@ export function toMarkdown(
   doc: LivingDocument,
   scribbles: Scribble[],
   video: { id: string; title: string | null },
-  options: { includeScribbles?: boolean } = {},
+  options: { includeScribbles?: boolean; purpose?: string } = {},
 ): string {
   const lines: string[] = [];
   const title = video.title ?? video.id;
   lines.push(`# ${title}`, "", `<https://www.youtube.com/watch?v=${video.id}>`, "");
+  const purpose = options.purpose?.trim().replace(/\s+/g, " ");
+  if (purpose) lines.push(`*Notes for: ${purpose}*`, "");
 
   for (const section of sections(doc, scribbles)) {
     if (section.topic) lines.push(`## ${section.topic}`, "");
-    for (const { note, times } of section.notes) {
+    let prevNumbered: boolean | null = null;
+    for (const { note, times, number } of section.notes) {
+      // A step list and a bullet list next to each other need a blank line, or they run together.
+      const numbered = number !== undefined;
+      if (prevNumbered !== null && prevNumbered !== numbered) lines.push("");
+      prevNumbered = numbered;
+      const marker = numbered ? `${number}.` : "-";
+      const indent = " ".repeat(marker.length + 1);
       const stamps = times.map((t) => `[${formatTime(t)}](${videoLink(video.id, t)})`).join(", ");
-      lines.push(`- ${note.text}${stamps ? ` (${stamps})` : ""}`);
+      lines.push(`${marker} ${note.text}${stamps ? ` (${stamps})` : ""}`);
       if (note.detail) {
         const d = note.detail;
         const at = d.at !== undefined ? ` ([${formatTime(d.at)}](${videoLink(video.id, d.at)}))` : "";
-        lines.push(`  - *${DETAIL_LABEL[d.kind]}${at}:* ${d.text.replace(/\n+/g, " ")}`);
+        lines.push(`${indent}- *${DETAIL_LABEL[d.kind]}${at}:* ${d.text.replace(/\n+/g, " ")}`);
       }
     }
     lines.push("");
@@ -358,4 +387,22 @@ export function toMarkdown(
   }
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+}
+
+/* ---------- History ---------- */
+
+/** Most earlier versions kept per video. */
+export const MAX_VERSIONS = 20;
+
+/** Add `doc` to the end of the history, unless it's empty or the same as the latest version. */
+export function pushVersion(history: DocVersion[] | undefined, doc: LivingDocument): DocVersion[] {
+  const list = history ?? [];
+  if (doc.notes.length === 0) return list;
+  const last = list[list.length - 1];
+  if (last && sameDoc(last.doc, doc)) return list;
+  return [...list, { id: newId("v"), doc }].slice(-MAX_VERSIONS);
+}
+
+function sameDoc(a: LivingDocument, b: LivingDocument): boolean {
+  return (a.shape ?? "topics") === (b.shape ?? "topics") && JSON.stringify(a.notes) === JSON.stringify(b.notes);
 }

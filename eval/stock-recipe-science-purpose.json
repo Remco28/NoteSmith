@@ -1,0 +1,59 @@
+{
+  "video": {
+    "id": "czNHTO0lIUI",
+    "title": "All-Day Stock in 15min, No Bones Required (ft. James Hoffmann)",
+    "author": "Chris Young"
+  },
+  "note": "Frank's recipe scribbles again, but with the purpose set to the science: the purpose should win over how the scribbles read.",
+  "scribbles": [
+    {
+      "id": "h1",
+      "time": 181,
+      "batch": 1,
+      "text": "make veal or beef stock from ground meat instead of bones.  more meat flavor"
+    },
+    {
+      "id": "h2",
+      "time": 224,
+      "batch": 2,
+      "text": "brown the whole block of ground meat first, if you break it up it will release too much liquid.  burner can't keep up."
+    },
+    {
+      "id": "h3",
+      "time": 227,
+      "batch": 2,
+      "text": "use vegetables sparingly so it doesn't taste like vegetables, should taste like meat."
+    },
+    {
+      "id": "h4",
+      "time": 234,
+      "batch": 3,
+      "text": "drain oil once the meat is nice and browned.  add vegetables (carrot, onions, celery, etc)."
+    },
+    {
+      "id": "h5",
+      "time": 294,
+      "batch": 4,
+      "text": "add powdered gelatin and some water to thicken to make up for missing bones"
+    },
+    {
+      "id": "h6",
+      "time": 388,
+      "batch": 5,
+      "text": "add an egg yolk and more water into a blender, blend. then add meat mixture into it.  pulse until it's broken into small pieces, not into a smoothie."
+    },
+    {
+      "id": "h7",
+      "time": 524,
+      "batch": 6,
+      "text": "pour back into a pot and let it simmer, add additional flavorings if needed.  bay leaves, peppercorns. cover lid to overcook the raft.  strain with a big coffee filter."
+    },
+    {
+      "id": "h8",
+      "time": 636,
+      "batch": 7,
+      "text": "traditional demiglace is made with veal and not beef or chicken.  veal is kind of neutral but meaty in flavor"
+    }
+  ],
+  "purpose": "the science behind each technique"
+}

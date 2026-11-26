@@ -11,7 +11,10 @@ import {
   transcriptForPrompt,
   cleanDetail,
   parseTime,
+  pushVersion,
+  MAX_VERSIONS,
 } from "@/lib/doc";
+import { buildUserPrompt } from "@/lib/refine/prompt";
 import type { LivingDocument, Scribble } from "@/types/notesmith";
 
 const s = (id: string, time: number, text: string): Scribble => ({ id, time, text, createdAt: 0 });
@@ -187,4 +190,55 @@ test("what the bookmark sends is read back, and anything else is refused", async
   assert.ok(decodeURIComponent(href).includes('const APP = "https://example.github.io/NoteSmith/"'));
   // The bookmark's code must parse as JavaScript.
   new Function(decodeURIComponent(href).slice("javascript:".length));
+});
+
+test("steps are numbered through the whole document; tips in between are not", () => {
+  const scribbles = [s("a", 10, "brown it"), s("b", 20, "why? surface area"), s("c", 30, "drain oil"), s("d", 40, "add gelatin")];
+  const notes = applyRefine([], scribbles, [
+    { sourceIds: ["a"], text: "Brown the meat.", topic: "Browning", mergeInto: null, detail: null, step: true },
+    { sourceIds: ["b"], text: "Why? Surface area.", topic: "Browning", mergeInto: null, detail: null, step: false },
+    { sourceIds: ["c"], text: "Drain the oil.", topic: "Browning", mergeInto: null, detail: null, step: true },
+    { sourceIds: ["d"], text: "Add gelatin.", topic: "Gelatin", mergeInto: null, detail: null, step: true },
+  ], [], undefined, "steps");
+  const doc: LivingDocument = { notes, updatedAt: 1, shape: "steps" };
+  const numbers = sections(doc, scribbles).flatMap((sec) => sec.notes.map((n) => n.number ?? null));
+  assert.deepEqual(numbers, [1, null, 2, 3]);
+
+  const md = toMarkdown(doc, scribbles, { id: "abcdefghijk", title: "Stock" }, { purpose: "a recipe to follow" });
+  assert.match(md, /\*Notes for: a recipe to follow\*/);
+  assert.match(md, /^1\. Brown the meat\./m);
+  assert.match(md, /^- Why\? Surface area\./m);
+  assert.match(md, /^3\. Add gelatin\./m);
+  // A bullet after a numbered step starts its own list.
+  assert.match(md, /Brown the meat\..*\n\n- Why/);
+});
+
+test("a topics document has no step numbers, even if the model sent step flags", () => {
+  const kept = [{ id: "n1", text: "Old step.", topic: "T", sources: { a: "x" }, step: true }];
+  const notes = applyRefine(kept, [s("b", 20, "y")], [
+    { sourceIds: ["b"], text: "Y.", topic: "T", mergeInto: null, detail: null, step: true },
+  ], [], undefined, "topics");
+  assert.ok(notes.every((n) => !n.step));
+  const doc: LivingDocument = { notes, updatedAt: 1, shape: "topics" };
+  assert.ok(sections(doc, [s("a", 10, "x"), s("b", 20, "y")]).every((sec) => sec.notes.every((n) => n.number === undefined)));
+});
+
+test("history keeps earlier versions, skips empty and repeated ones, and is capped", () => {
+  const doc = (text: string): LivingDocument => ({ notes: [{ id: "n", text, topic: "", sources: { a: "a" } }], updatedAt: 1 });
+  let h = pushVersion(undefined, emptyDocument());
+  assert.equal(h.length, 0);
+  h = pushVersion(h, doc("one"));
+  h = pushVersion(h, doc("one"));
+  assert.equal(h.length, 1);
+  for (let i = 0; i < MAX_VERSIONS + 5; i++) h = pushVersion(h, doc(`v${i}`));
+  assert.equal(h.length, MAX_VERSIONS);
+  assert.equal(h.at(-1)!.doc.notes[0].text, `v${MAX_VERSIONS + 4}`);
+});
+
+test("the prompt carries the purpose and the shape", () => {
+  const pending = [{ id: "a", time: 5, text: "brown it" }];
+  assert.match(buildUserPrompt([], pending, { purpose: "the science" }), /these notes are for: "the science"/);
+  assert.match(buildUserPrompt([], pending), /Shape: not chosen yet/);
+  assert.match(buildUserPrompt([], pending, { shape: "steps" }), /Current shape: "steps"/);
+  assert.match(buildUserPrompt([], pending, { shape: "topics", shapeFixed: true }), /Shape: use "topics"/);
 });

@@ -1,9 +1,12 @@
 # NoteSmith
 
-Scribble while you watch a YouTube video. NoteSmith forges your rough scribbles into notes you can reread without rewatching: it keeps what you meant, makes each note make sense on its own (who "they" are, what "it" is), fills in what the video said, answers your questions, and groups the notes by topic.
+Scribble while you watch a YouTube video. NoteSmith forges your rough scribbles into notes you can reread without rewatching: it keeps what you meant, makes each note make sense on its own (who "they" are, what "it" is), fills in what the video said, answers your questions, and lays the notes out the way you're using them: numbered steps when you're noting how to do something, topics when you're noting ideas.
 
 - **Raw Scribbles:** type or speak a thought. It's stamped with the moment in the video.
-- **Living Document:** each scribble becomes a refined note, grouped under topics, with a link back to its moment. Notes update a few seconds after you stop adding scribbles.
+- **Living Document:** each scribble becomes a refined note with a link back to its moment. Notes update a few seconds after you stop adding scribbles.
+  - **Layout:** guessed from how you write. If you write "brown the meat first, then drain the oil", you get numbered steps grouped by stage; if you write "why does it brown better? surface area?", you get topics. When your scribbles change character, the whole document is re-forged in the new layout, and the message that says so has an Undo button.
+  - **Notes for:** an optional line at the top where you say what the notes are for ("the science behind each technique", "a recipe I can follow"). It decides the layout and which details are worth adding. Changing it re-forges the notes.
+  - **History:** every forge keeps the version before it (the last 20). Pick one to look at it, then restore it or go back. Restoring can be undone the same way.
 - **Transcript:** follows the video. Click any line to jump there.
 - **Export:** copy or download the notes as Markdown, with the raw scribbles below.
 
