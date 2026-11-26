@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { formatTime, sections } from "@/lib/doc";
-import type { LivingDocument, Scribble } from "@/types/notesmith";
+import type { LivingDocument, NoteDetail, Scribble } from "@/types/notesmith";
 import { AlertIcon, CopyIcon, DownloadIcon, HammerIcon, RefreshIcon } from "./icons";
 import { Smith } from "./Smith";
 
@@ -47,7 +47,6 @@ export function DocPanel({
   autoForge,
   freshIds,
   staleIds,
-  showContext,
   highlightIds,
   onForge,
   onReforgeAll,
@@ -67,7 +66,6 @@ export function DocPanel({
   autoForge: boolean;
   freshIds: Set<string>;
   staleIds: Set<string>;
-  showContext: boolean;
   highlightIds: Set<string>;
   onForge: () => void;
   onReforgeAll: () => void;
@@ -253,14 +251,6 @@ export function DocPanel({
                         <span className="mt-[11px] h-1.5 w-1.5 shrink-0 bg-accent" aria-hidden />
                         <div className="min-w-0 flex-1">
                           <span className="note-text font-doc text-doc text-ink">{renderInline(note.text)}</span>
-                          {showContext && note.context && (
-                            <span
-                              className="ml-1.5 font-ui text-body italic text-muted"
-                              title="Quoted from the transcript at that moment. Not your words."
-                            >
-                              (re: &ldquo;{note.context}&rdquo;)
-                            </span>
-                          )}
                           {note.unrefined && (
                             <span
                               className="ml-2 inline-flex h-5 items-center rounded-[4px] border border-border-strong px-1.5 align-[2px] text-caption text-muted"
@@ -283,6 +273,7 @@ export function DocPanel({
                               </button>
                             ))}
                           </span>
+                          {note.detail && <Detail detail={note.detail} onSeek={onSeek} />}
                         </div>
                       </li>
                     );
@@ -311,5 +302,38 @@ export function DocPanel({
         </div>
       )}
     </section>
+  );
+}
+
+const DETAIL_TAG: Record<NoteDetail["kind"], { label: string; title: string }> = {
+  video: { label: "From the video", title: "What was said in the video. Not your words." },
+  answer: { label: "Answer", title: "The video's answer to your question. Not your words." },
+  general: {
+    label: "Answer · general knowledge",
+    title: "Answered from the AI's general knowledge, not from the video. Check anything important.",
+  },
+};
+
+/** Background or an answer under a note: set apart, so it never reads as the user's own words. */
+function Detail({ detail, onSeek }: { detail: NoteDetail; onSeek: (t: number) => void }) {
+  const tag = DETAIL_TAG[detail.kind];
+  return (
+    <p className="mt-1 border-l-2 border-border-strong pl-3 font-ui text-body leading-relaxed text-muted" title={tag.title}>
+      <span className={`mr-1.5 text-caption font-medium uppercase tracking-wide ${detail.kind === "general" ? "text-faint" : "text-accent"}`}>
+        {tag.label}
+      </span>
+      {renderInline(detail.text)}
+      {detail.at !== undefined && (
+        <button
+          type="button"
+          className="time-chip ml-2 align-[1px]"
+          onClick={() => onSeek(Math.max(0, detail.at! - 2))}
+          title={`Jump to ${formatTime(detail.at)}, where this was said`}
+          aria-label={`Jump the video to ${formatTime(detail.at)}, where this was said`}
+        >
+          {formatTime(detail.at)}
+        </button>
+      )}
+    </p>
   );
 }

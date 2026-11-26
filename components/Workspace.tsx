@@ -11,6 +11,7 @@ import {
   toExistingNotes,
   toMarkdown,
   toPending,
+  transcriptForPrompt,
 } from "@/lib/doc";
 import {
   defaultSettings,
@@ -267,6 +268,10 @@ export function Workspace() {
       setForging(true);
       setForgeError(null);
       const forVideo = sessionRef.current.video.id;
+      // Notes are filled in from the transcript, so give it a moment to arrive.
+      for (let i = 0; i < 40 && transcriptRef.current.status === "loading"; i++) {
+        await new Promise((r) => setTimeout(r, 250));
+      }
       let base: LivingDocument = mode === "all" ? emptyDocument() : sessionRef.current.doc;
       const total = planRefine(sessionRef.current.scribbles, base).pending.length;
       let done = 0;
@@ -297,7 +302,11 @@ export function Workspace() {
               model: cfg.models[cfg.provider],
               video: { title: current.video.title, author: current.video.author },
               notes: toExistingNotes(kept, current.scribbles),
-              pending: toPending(batch, transcriptRef.current.segments),
+              pending: toPending(batch),
+              transcript: transcriptForPrompt(
+                transcriptRef.current.segments,
+                batch.map((s) => s.time),
+              ),
             }),
           });
           const body = (await res.json().catch(() => ({}))) as Partial<RefineResponse> & { error?: string };
@@ -317,7 +326,13 @@ export function Workspace() {
           }
 
           const before = new Map(base.notes.map((n) => [n.id, n.text]));
-          const notes = applyRefine(kept, batch, body.items ?? [], body.moves ?? []);
+          const notes = applyRefine(
+            kept,
+            batch,
+            body.items ?? [],
+            body.moves ?? [],
+            transcriptRef.current.segments.at(-1)?.end,
+          );
           base = { notes, updatedAt: Date.now() };
           done += batch.length;
           const fresh = new Set(notes.filter((n) => before.get(n.id) !== n.text).map((n) => n.id));
@@ -418,7 +433,6 @@ export function Workspace() {
     const s = sessionRef.current!;
     return toMarkdown(s.doc, s.scribbles, s.video, {
       includeScribbles: true,
-      includeContext: settingsRef.current.showContext,
     });
   }, []);
 
@@ -569,7 +583,6 @@ export function Workspace() {
       autoForge={settings.autoForge}
       freshIds={freshIds}
       staleIds={staleIds}
-      showContext={settings.showContext}
       highlightIds={hoverIds}
       onForge={() => forge("new")}
       onReforgeAll={() => forge("all")}

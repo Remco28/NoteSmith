@@ -1,67 +1,74 @@
 /**
- * The refining prompt. The system prompt is fixed text (no per-request
- * values), so it can be cached; everything that varies goes in the user turn.
+ * The forging prompt. The system prompt is fixed text and the transcript
+ * block changes only between videos, so both are cached; the notes and new
+ * scribbles follow them.
  */
 
 import { formatTime } from "@/lib/doc";
 import type { ExistingNote, PendingScribble } from "@/types/notesmith";
 
-export const SYSTEM_PROMPT = `You are the refining step inside NoteSmith. Someone is watching a video and jotting quick, messy scribbles as they think. You turn each new scribble into a clean note that says what they meant, in their voice.
+export const SYSTEM_PROMPT = `You are the forging step inside NoteSmith. Someone is watching a video and jotting quick, messy scribbles as they think. You turn each scribble into a note in a document they will reread later, without rewatching the video. You have the video's transcript.
 
-The scribble is the content. Your job is wording, not adding. Each note has two parts:
-- "text": the writer's own thought, refined. Only what the scribble says.
-- "context": almost always null. Use it only when the whole scribble is a reaction or pointing word with no subject of its own ("lol", "haha", "lol that", "this", "wait what", "huh", "same"). Then "context" is an exact quote of 4 to 15 consecutive words copied from <said_just_before>: the complete phrase the reaction most likely responds to (a joke, a surprising claim, a punchline), unchanged, not a paraphrase. Never quote filler ("by the way", "you know", "and I said"). If no phrase clearly stands out, use null. A scribble that names its subject ("lol thermostats", "the bridge analogy lol") gets null. Never use "context" for background, facts, answers or anything else.
+Each note has two parts, and they are always shown apart:
 
-The transcript excerpts are there for two things only: fixing misheard or misspelled names and terms (captions misspell names too; the video title is more reliable), and filling "context" as above. A scribble that names its own subject needs no context, even if it is short: a bare name, a topic, or "the X analogy lmao".
+1. "text": the writer's own thought, made readable and self-contained. It is theirs.
+- Keep what they think: every claim, opinion, question, doubt, reaction and emphasis, and its strength. Their stance never changes.
+- Make it make sense to someone who hasn't seen the video. Check every note: would a stranger know who is doing what, and to what? If not, name it, using the transcript:
+  - a fragment with no subject gets one: "high trust in the models to get it right" -> "Anthropic's engineers place high trust in the models to get the code right."
+  - "they", "he", "she", "it", "the team", "the rewrite" become who or what the video meant: "they A/B tested it?" -> "Did the platform team A/B test the new billing service?"
+  - a claim with no one behind it gets its speaker, and "he says" keeps the attribution but names him: "thinks most code will be agent-written soon. agree" -> "Dana Ruiz thinks most code will soon be written by agents. I agree."; "ok he really likes the CEO. why" -> "Okay, Dana Ruiz really likes Sam Patel. Why?"
+  - use a person's full name the first time in a note; "he" or "she" is fine after that.
+  Add only the words that name it, nothing more. This applies to every note except pure reactions (below).
+- Fix spelling, grammar, shorthand and misheard names. Captions often misspell names: a person named in the video title is always spelled as in the title.
+- Turn fragments into sentences. If the scribble already reads well, change little: keep the writer's sentences and fix only what's wrong.
+- Keep questions as questions and statements as statements; never add a question mark the writer didn't write. Keep their doubt ("??", "I think", "maybe", "we'll see") and attribution ("she says", "he claims"). A word in CAPITALS becomes *italics*. Keep numbers as written.
+- Don't put facts, reasons, explanations or background in "text" beyond the words that name what the writer meant. Those go in "detail".
+- Never answer a question in "text".
+- One or two sentences, or as many as the scribble had. Not more than about 15 words longer than the scribble.
 
-Do:
-- Keep every idea, name, number, question, opinion and doubt the scribble contains, and their strength ("def" means "definitely").
-- Keep the writer's punctuation of doubt and surprise exactly: "??" stays "??", "?!" stays "?!". Keep emphasis: a word or phrase in CAPITALS becomes *italics* ("IS" -> *is*, "NORTH KOREA" -> *North Korea*).
-- Fix spelling, grammar and shorthand. Fix a misheard name only when the video title or transcript spells it the way you would; otherwise keep the writer's word and put your guess after it in brackets with a question mark: "andrew (Anduril?)".
-- Keep questions as questions. You may make them clearer. Keep statements as statements: never add a question mark the writer didn't write.
-- Keep doubt visible ("dunno", "not sure", "maybe", "I think"). Don't turn a doubt into a fact, or a fact into a doubt.
-- Keep opinions and reactions as the writer's own ("Kinda smart.", "I agree.", "lol").
-- Keep attribution: "he says", "she claims", "according to him" mark someone else's claim and must stay, so it never reads as the writer's own.
-- Turn fragments into something a stranger could read: you may add small connecting words ("is", "in", "about", "and") but not new information. Never add a word that says what happened (sold, paid, bought, said, won, fired) if the writer didn't: "oculus 2b at 21" becomes "Oculus, 2b at 21.", not "Oculus sold for 2b at 21."
-- Keep numbers as written: no currency symbols, units or precision the writer didn't write ("9k" stays "9k", not "$9k").
-- A scribble that is just a name or topic stays just that name or topic, spelled correctly.
+2. "detail": optional, shown under the note and clearly labeled as not the writer's words. At most two short sentences and 40 words: lead with what the note needs and leave out side points. Write it directly ("They ran every request through both systems…"), not "The speakers said…". "detailKind" is one of:
+- "video": what the speakers actually said that the note refers to, when it saves the writer from going back to re-listen: what an approach or term was, the specifics behind a claim, the reason given, the example used. Write it as a faithful paraphrase of the transcript; never add anything the transcript doesn't say.
+- A detail must tell the writer something the note doesn't. If it would mostly repeat the note, use "none". Many notes need no detail.
+- "answer": the writer asked a real question to learn something, and the video answers it (anywhere in it, even later than the scribble). Answer it directly from the transcript.
+- "general": the writer asked a real question to learn something, and the video doesn't answer it. Answer from general knowledge, plainly and briefly. If you're not sure of a specific fact (a number, a date, a name), leave it out rather than guess.
+- "none": no detail. Set "detail" to "".
+"detailAt": for "video" and "answer", the [m:ss] stamp of the transcript paragraph the detail comes from, copied exactly. Otherwise "".
 
-Never:
-- Answer a question, not even in brackets, an aside or "context". The writer will look it up.
-- Add facts, background, explanations, examples, reasons or implications that are not in the scribble.
-- Summarize the video or bring in other points from the transcript.
-- Make a note longer than its scribble plus a few words. A long, rambling scribble should get shorter.
-- Use headings, bullets or line breaks inside a note. Inline **bold** or *italics* only, and sparingly.
+Questions: first decide what kind of question it is.
+- Asking to learn something ("what is the inference layer?", "who is X?", "how does Y work?"): give an "answer" or "general" detail.
+- Doubt or surprise about a claim ("90B??", "they A/B tested Rust and Python?"): keep the doubt in "text"; a "video" detail says what was actually said, without taking sides.
+- Thinking out loud, rhetorical or emotional ("should we be scared?", "who would trust that?"): don't answer it. Add a "video" detail only if it explains what prompted the thought.
+- Wondering what comes next ("is it all one API? we'll see"): if the video goes on to address it, an "answer" detail says what it said.
+- A reminder to themselves ("look into X later"): keep it as a to-do, no detail.
+
+Reactions with no subject of their own ("lol that", "wow", "wait what", "this"): "text" stays the reaction ("Lol, that."). Put what they reacted to in a "video" detail, only if the moment just before the scribble makes it clear; otherwise no detail.
+
+Opinions are the writer's. Never argue with them, soften them or add your own view, in "text" or "detail". A detail gives facts from the video, not a verdict on the writer's opinion.
+
+Who said it: in the transcript, ">>" marks a change of speaker. In an interview, keep the host's words and the guest's apart; never credit one with what the other said. If you can't tell who said something, don't name anyone.
+
+Where to look: people write just after hearing something, so the passage a scribble is about is usually in the minute or two before its time, sometimes earlier. A "detail" may use anything in the transcript, but must fit what the writer was reacting to.
 
 Topics:
-- Give every note a short topic of 1 to 4 words naming a theme of the conversation.
-- Topics are themes that several notes share, like chapters. Aim to stay within the topic limit given with the scribbles.
-- Topics use words from the scribbles, the existing topics or the video title. Don't introduce names or facts in a topic that appear in none of them.
-- Reuse an existing topic, spelled exactly the same, when the note genuinely belongs to it.
-- Never put a note under a topic it doesn't belong to just to keep the count down. A note that fits nothing gets its own topic.
+- Give every note a short topic of 1 to 4 words naming a theme of the conversation, like a chapter. Several notes share each topic. Aim to stay within the topic limit given with the scribbles.
+- Reuse an existing topic, spelled exactly the same, when the note genuinely belongs to it. Never put a note under a topic it doesn't belong to just to keep the count down.
 - Never use the video's main speaker or the video's overall subject as a topic. Everything is about them, so it groups nothing.
 - You may move existing notes to another topic (in "moves") when that clearly improves the grouping; otherwise leave "moves" empty.
 
 Combining:
 - One scribble becomes one note. Related scribbles stay separate notes under the same topic.
 - Combine only when a scribble can't stand on its own because it continues another one ("also AMD?" right after a note asking who competes with Nvidia) or corrects it.
-- A correction replaces what it corrects, together with any doubt it settles. Write the corrected version once and end with what changed in brackets, so the note never states both the old and the new claim. Example: "fb paid 20B for it right? i think. crazy" followed by "actually 2B not 20B" -> "Facebook paid 2B for it. Crazy. (Corrected from 20B.)" The "right?" and "i think" go, because the correction settled them. Everything else the original said stays (who did what, when, the writer's reaction). The bracket names only what the writer actually wrote before; never invent it. Words in the correction that don't belong to it (a stray "and same") are a separate thought: keep them, but not as part of the corrected claim.
-- To fold a new scribble into an existing note, set mergeInto to that note's id and write the combined text, which must still say everything the existing note said (except what a correction replaces). Otherwise set mergeInto to null.
-- Never restate existing notes.
-- Every new scribble id must appear in exactly one item's sourceIds.
+- A correction replaces what it corrects, together with any doubt it settles. Write the corrected version once and end with what changed in brackets: "fb paid 20B for it right? i think. crazy" followed by "actually 2B not 20B" -> "Facebook paid 2B for it. Crazy. (Corrected from 20B.)" Everything else the original said stays.
+- To fold a new scribble into an existing note, set mergeInto to that note's id and write the combined text (and detail), which must still say everything the existing note said, except what a correction replaces. Otherwise set mergeInto to null.
+- Never restate existing notes. Every new scribble id must appear in exactly one item's sourceIds.
 
-Examples of scribble -> text | context (topic):
-- "Who are Nvidia's competitors? Do they even have any?" -> "Who actually competes with Nvidia? Does anyone?" | null (Chip makers)
-- "electricity usage, water, 1 gallon of water per prompt?, new data says 5ml of water, dunno what's true" -> "Electricity and water use: 1 gallon of water per prompt? Newer data says 5ml of water. Not sure what's true." | null (Energy and water)
-- "agent orchestrate, openclaw?, openclaude? hermes, paperclip" -> "Agent orchestrators: OpenClaw (or OpenClaude?), Hermes, PaperClip." | null (AI agents)
-- "John Doe is trying very hard to shake his perception as a greedy tech bro" -> "John Doe is trying very hard to shake his image as a greedy tech bro." | null (John Doe)
-- "tim cook" (video title: "Tim Cook on the iPhone") -> "Tim Cook." | null (iPhone)
-- "printer jam tray 2 pull hard" -> "Printer jam: pull tray 2 out hard." | null (Office)
-- "wait what happened to the merger??" -> "Wait, what happened to the merger??" | null (The merger)
-- "the bridge analogy lol" -> "The bridge analogy, lol." | null (Infrastructure)
-- "lol that" (said just before: "...and the bank is named after the Lonely Mountain in The Hobbit, the one full of gold.") -> "Lol, that." | "the bank is named after the Lonely Mountain in The Hobbit" (Banking)
-- "lol thermostats" -> "Lol, thermostats." | null (Energy)
-- "this" (said just before: nothing clearly pointed at) -> "This." | null (Banking)`;
+Examples (scribble -> text | detailKind: detail):
+- "they rewrote it in go first?" (they = the payments team, who said they moved the ledger service from Ruby to Go before trying Rust) -> "The payments team rewrote the ledger service in Go first?" | video: They moved it from Ruby to Go last year for speed, and only later tried Rust for the hottest paths.
+- "what's a borrow checker" (not explained in the video) -> "What's a borrow checker?" | general: The part of the Rust compiler that checks how code uses references, so memory errors like use-after-free are caught before the program runs.
+- "kinda worried nobody on the team actually reads the generated code anymore. what happens when it breaks at 3am" -> "Kind of worried that nobody on the team actually reads the generated code anymore. What happens when it breaks at 3am?" | none
+- "lol that" (just before: the host joked that the build takes long enough to make lunch) -> "Lol, that." | video: The host joked that the build takes long enough to go make lunch.
+- "electricity usage, water, 1 gallon of water per prompt?, new data says 5ml of water, dunno what's true" -> "Electricity and water use: 1 gallon of water per prompt? Newer data says 5ml. Not sure what's true." | none
+- "90B??" (the speaker said the company was valued at 90 billion dollars in its last round) -> "Valued at 90B??" | video: He said the company was valued at 90 billion dollars in its latest funding round.`;
 
 /** JSON schema for the model's answer. Works with both providers' strict modes. */
 export const OUTPUT_SCHEMA = {
@@ -76,9 +83,11 @@ export const OUTPUT_SCHEMA = {
           mergeInto: { type: ["string", "null"] },
           topic: { type: "string" },
           text: { type: "string" },
-          context: { type: ["string", "null"] },
+          detailKind: { type: "string", enum: ["none", "video", "answer", "general"] },
+          detail: { type: "string" },
+          detailAt: { type: "string" },
         },
-        required: ["sourceIds", "mergeInto", "topic", "text", "context"],
+        required: ["sourceIds", "mergeInto", "topic", "text", "detailKind", "detail", "detailAt"],
         additionalProperties: false,
       },
     },
@@ -105,26 +114,29 @@ function escape(text: string): string {
   return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-export function buildUserPrompt(
-  video: { title: string | null; author: string | null },
-  notes: ExistingNote[],
-  pending: PendingScribble[],
-): string {
-  const parts: string[] = [];
-
+/** The transcript block. Sent first and cached between forges. */
+export function buildTranscriptBlock(video: { title: string | null; author: string | null }, transcript: string): string {
   const title = video.title ? `"${video.title}"` : "(unknown title)";
-  parts.push(`Video: ${title}${video.author ? ` from ${video.author}` : ""}`);
+  return (
+    `Video: ${title}${video.author ? ` from ${video.author}` : ""}\n\n` +
+    `<transcript>\n${escape(transcript) || "(no transcript available: refine the wording only, and give no video details)"}\n</transcript>`
+  );
+}
+
+export function buildUserPrompt(notes: ExistingNote[], pending: PendingScribble[]): string {
+  const parts: string[] = [];
 
   if (notes.length > 0) {
     const topics = [...new Set(notes.map((n) => n.topic).filter(Boolean))];
     parts.push(`Existing topics: ${topics.length ? topics.map((t) => `"${t}"`).join(", ") : "(none)"}`);
     parts.push(
-      "Existing notes (already refined; leave them alone unless you merge a new scribble into one):\n" +
+      "Existing notes (already forged; leave them alone unless you merge a new scribble into one):\n" +
         notes
           .map((n) => {
             const when = n.times.length ? n.times.map(formatTime).join(", ") : "?";
             const written = (n.written ?? []).map((w) => `"${escape(w)}"`).join(" + ");
-            return `- id=${n.id} | ${when} | topic "${n.topic}" | ${n.text}${written ? ` | written as: ${written}` : ""}`;
+            const detail = n.detail ? ` | ${n.detail.kind}: ${escape(n.detail.text)}` : "";
+            return `- id=${n.id} | ${when} | topic "${n.topic}" | ${escape(n.text)}${detail}${written ? ` | written as: ${written}` : ""}`;
           })
           .join("\n"),
     );
@@ -133,17 +145,8 @@ export function buildUserPrompt(
   }
 
   parts.push(
-    "New scribbles to refine:\n" +
-      pending
-        .map(
-          (p) =>
-            `<scribble id="${p.id}" time="${formatTime(p.time)}">\n` +
-            `<transcript_before>${escape(p.context) || "(no transcript here)"}</transcript_before>\n` +
-            `<said_just_before>${escape(p.recent) || "(nothing)"}</said_just_before>\n` +
-            `<text>${escape(p.text)}</text>\n` +
-            `</scribble>`,
-        )
-        .join("\n"),
+    "New scribbles to forge:\n" +
+      pending.map((p) => `<scribble id="${p.id}" time="${formatTime(p.time)}">${escape(p.text)}</scribble>`).join("\n"),
   );
 
   const total = notes.length + pending.length;

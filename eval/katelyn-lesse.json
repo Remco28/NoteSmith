@@ -1,0 +1,14 @@
+{
+  "video": { "id": "9oNvKMd7xJo", "title": "How Anthropic builds software in 2026 with Katelyn Lesse", "author": "The Pragmatic Engineer" },
+  "note": "Frank's real scribbles from his first hands-on test (2026-11-25), at the times he wrote them. 'batch' is the forging round each arrives in.",
+  "scribbles": [
+    { "id": "k1", "time": 500, "batch": 1, "text": "what is inference layer?" },
+    { "id": "k2", "time": 845, "batch": 2, "text": "She says that everything goes through the messages API at Anthropic?  Is it just one API for basically everything?  Then it gets routed?  We'll see I guess." },
+    { "id": "k3", "time": 956, "batch": 3, "text": "Anthropic chose to refactor their code base in Rust" },
+    { "id": "k4", "time": 1052, "batch": 4, "text": "Anthropic is trusting the models to know how to code in Rust. They don't actually have that many rust engineers... should we be scared? Yikes." },
+    { "id": "k5", "time": 1280, "batch": 5, "text": "It's a little concerning that Anthropic is fine with their engineers only understanding things at a high level and not being able to entirely read the code.  Especially as we trust them more and more with our data." },
+    { "id": "k6", "time": 1338, "batch": 6, "text": "high trust in the models to get it right" },
+    { "id": "k7", "time": 1365, "batch": 6, "text": "compiling rust finds much of the bugs. takes eternity to compile in rust." },
+    { "id": "k8", "time": 1512, "batch": 7, "text": "they A/B tested Rust and Python implementations?" }
+  ]
+}

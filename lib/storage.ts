@@ -14,7 +14,10 @@ import type { Session, Settings, TranscriptSegment } from "@/types/notesmith";
 const PREFIX = "notesmith:";
 const MAX_CACHED_TRANSCRIPTS = 6;
 
-export const DEFAULT_MODELS = { anthropic: "claude-haiku-5-5", openai: "gpt-5.4-nano" } as const;
+export const DEFAULT_MODELS = { anthropic: "claude-sonnet-5-5", openai: "gpt-5.4-mini" } as const;
+
+/** Defaults from before version 3, when notes were only reworded. Filling in from the video needs a stronger model. */
+const OLD_DEFAULT_MODELS: Record<string, string> = { anthropic: "claude-haiku-5-5", openai: "gpt-5.4-nano" };
 
 export function defaultSettings(): Settings {
   return {
@@ -22,7 +25,6 @@ export function defaultSettings(): Settings {
     models: { ...DEFAULT_MODELS },
     apiKeys: { anthropic: "", openai: "" },
     autoForge: true,
-    showContext: false,
   };
 }
 
@@ -60,20 +62,23 @@ function keys(): string[] {
   }
 }
 
-const SETTINGS_VERSION = 2;
+const SETTINGS_VERSION = 3;
 
 export function loadSettings(): Settings {
   const saved = read<Partial<Settings> & { version?: number }>("settings");
   const base = defaultSettings();
   if (!saved) return base;
-  // Version 1 defaulted the context aside to on; it is opt-in now.
-  if ((saved.version ?? 1) < SETTINGS_VERSION) delete saved.showContext;
+  if ((saved.version ?? 1) < 3 && saved.models) {
+    // Someone still on the old default never chose it; move them to the new one.
+    for (const p of ["anthropic", "openai"] as const) {
+      if (saved.models[p] === OLD_DEFAULT_MODELS[p]) saved.models[p] = DEFAULT_MODELS[p];
+    }
+  }
   return {
     provider: saved.provider === "openai" ? "openai" : "anthropic",
     models: { ...base.models, ...(saved.models ?? {}) },
     apiKeys: { ...base.apiKeys, ...(saved.apiKeys ?? {}) },
     autoForge: saved.autoForge ?? base.autoForge,
-    showContext: saved.showContext ?? base.showContext,
   };
 }
 
@@ -90,7 +95,7 @@ export function saveCurrentVideoId(id: string | null) {
  * scribbles, so an older session keeps its scribbles and has its notes
  * rebuilt on the next forge, instead of showing notes made under old rules.
  */
-const SESSION_VERSION = 3;
+const SESSION_VERSION = 4;
 
 export function loadSession(videoId: string): Session | null {
   const s = read<Session & { version?: number }>(`session:${videoId}`);

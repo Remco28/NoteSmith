@@ -21,7 +21,17 @@ export async function anthropicJson(req: JsonRequest): Promise<JsonResult> {
       model: req.model,
       max_tokens: req.maxTokens,
       system: req.system,
-      messages: [{ role: "user", content: req.user }],
+      messages: [
+        {
+          role: "user",
+          content: [
+            ...(req.context
+              ? [{ type: "text" as const, text: req.context, cache_control: { type: "ephemeral" as const } }]
+              : []),
+            { type: "text" as const, text: req.user },
+          ],
+        },
+      ],
       output_config: {
         format: { type: "json_schema", schema: req.schema },
         ...(supportsEffort(req.model) ? { effort: EFFORT } : {}),
@@ -52,7 +62,14 @@ export async function anthropicJson(req: JsonRequest): Promise<JsonResult> {
 
   return {
     json,
-    usage: { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens },
+    usage: {
+      inputTokens:
+        response.usage.input_tokens +
+        (response.usage.cache_read_input_tokens ?? 0) +
+        (response.usage.cache_creation_input_tokens ?? 0),
+      outputTokens: response.usage.output_tokens,
+      cachedTokens: response.usage.cache_read_input_tokens ?? 0,
+    },
   };
 }
 

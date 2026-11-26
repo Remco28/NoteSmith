@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { LlmError } from "@/lib/llm/types";
 import { MAX_PENDING_PER_REQUEST, refine } from "@/lib/refine/run";
 import { serverKeyFor } from "@/lib/server-key";
-import type { Provider, RefineRequest } from "@/types/notesmith";
+import type { DetailKind, NoteDetail, Provider, RefineRequest } from "@/types/notesmith";
 
 export const maxDuration = 120;
 
@@ -23,6 +23,15 @@ function bad(message: string, status = 400) {
 
 function str(value: unknown, max: number): string | null {
   return typeof value === "string" ? value.slice(0, max) : null;
+}
+
+function readDetail(value: unknown): NoteDetail | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const d = value as Record<string, unknown>;
+  const kind = d.kind as DetailKind;
+  const text = str(d.text, 1000);
+  if (!["video", "answer", "general"].includes(kind) || !text) return undefined;
+  return { kind, text, ...(typeof d.at === "number" ? { at: d.at } : {}) };
 }
 
 export async function POST(request: NextRequest) {
@@ -49,6 +58,7 @@ export async function POST(request: NextRequest) {
     provider,
     model,
     video: { title: str(video.title, 300), author: str(video.author, 200) },
+    transcript: str(body.transcript, 300_000) ?? "",
     notes: notesRaw.map((n: Record<string, unknown>) => ({
       id: str(n.id, 64) ?? "",
       topic: str(n.topic, 80) ?? "",
@@ -57,13 +67,12 @@ export async function POST(request: NextRequest) {
       written: Array.isArray(n.written)
         ? n.written.filter((w): w is string => typeof w === "string").slice(0, 20).map((w) => w.slice(0, 2000))
         : [],
+      detail: readDetail(n.detail),
     })),
     pending: pendingRaw.map((p: Record<string, unknown>) => ({
       id: str(p.id, 64) ?? "",
       time: typeof p.time === "number" ? p.time : 0,
       text: str(p.text, 4000) ?? "",
-      context: str(p.context, 2000) ?? "",
-      recent: str(p.recent, 1000) ?? "",
     })),
   };
 

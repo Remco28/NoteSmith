@@ -14,6 +14,7 @@ import type {
   ExistingNote,
   LivingDocument,
   Note,
+  NoteDetail,
   PendingScribble,
   RefineItem,
   Scribble,
@@ -75,50 +76,65 @@ export function forgedIds(scribbles: Scribble[], doc: LivingDocument): Set<strin
   return ids;
 }
 
-/* ---------- Transcript context ---------- */
+/* ---------- Transcript ---------- */
 
-const CONTEXT_BEFORE_S = 75;
-const CONTEXT_AFTER_S = 10;
-const CONTEXT_MAX_CHARS = 1400;
-const RECENT_BEFORE_S = 15;
-const RECENT_AFTER_S = 0;
+const PARAGRAPH_S = 30;
+/** About 60k tokens: a 3-hour video fits whole. */
+const TRANSCRIPT_MAX_CHARS = 240_000;
 
-/**
- * The transcript around one moment: by default the ~75 seconds before the
- * scribble and a few seconds after.
- */
-export function transcriptAround(
-  segments: TranscriptSegment[],
-  time: number,
-  before = CONTEXT_BEFORE_S,
-  after = CONTEXT_AFTER_S,
-): string {
-  const from = time - before;
-  const to = time + after;
-  let text = segments
-    .filter((s) => s.end >= from && s.start <= to)
-    .map((s) => s.text.replace(/\s+/g, " ").trim())
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (text.length > CONTEXT_MAX_CHARS) {
-    // Keep the end: the words right before the scribble matter most.
-    text = "…" + text.slice(text.length - CONTEXT_MAX_CHARS);
-  }
-  return text;
+function clean(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
-export function toPending(scribbles: Scribble[], segments: TranscriptSegment[]): PendingScribble[] {
-  return scribbles.map((s) => ({
-    id: s.id,
-    time: s.time,
-    text: s.text.trim(),
-    context: transcriptAround(segments, s.time),
-    recent: segments
-      .filter((seg) => seg.start >= s.time - RECENT_BEFORE_S && seg.start <= s.time + RECENT_AFTER_S)
-      .map((seg) => seg.text.replace(/\s+/g, " ").trim())
-      .join(" "),
-  }));
+/** Caption lines joined into paragraphs of about 30 seconds, each stamped with its start. */
+function paragraphs(segments: TranscriptSegment[]): Array<{ start: number; text: string }> {
+  const out: Array<{ start: number; text: string }> = [];
+  for (const seg of segments) {
+    const text = clean(seg.text);
+    if (!text) continue;
+    const last = out[out.length - 1];
+    if (last && seg.start - last.start < PARAGRAPH_S) last.text += " " + text;
+    else out.push({ start: seg.start, text });
+  }
+  return out;
+}
+
+/**
+ * The transcript as the model reads it: "[m:ss] text" paragraphs. The whole
+ * video when it fits, so a note can draw on what was said minutes earlier
+ * and a question can be answered from later on. A very long video is cut to
+ * a window around the scribbles.
+ */
+export function transcriptForPrompt(segments: TranscriptSegment[], times: number[]): string {
+  const paras = paragraphs(segments).map((p) => ({ start: p.start, line: `[${formatTime(p.start)}] ${p.text}` }));
+  const total = paras.reduce((n, p) => n + p.line.length + 1, 0);
+  let chosen = paras;
+  if (total > TRANSCRIPT_MAX_CHARS && times.length > 0) {
+    // Grow a window around the scribbles until the budget is used.
+    const lo = Math.min(...times);
+    const hi = Math.max(...times);
+    let pad = 0;
+    for (let step = 60; ; step += 60) {
+      const inside = paras.filter((p) => p.start >= lo - step && p.start <= hi + step);
+      if (inside.reduce((n, p) => n + p.line.length + 1, 0) > TRANSCRIPT_MAX_CHARS || step > 4 * 3600) break;
+      pad = step;
+    }
+    chosen = paras.filter((p) => p.start >= lo - pad && p.start <= hi + pad);
+    if (chosen.length === 0) chosen = paras.filter((p) => p.start >= lo - 600 && p.start <= lo + 600);
+  }
+  return chosen.map((p) => p.line).join("\n");
+}
+
+/** The transcript around one moment (used by the eval's judge). */
+export function transcriptAround(segments: TranscriptSegment[], time: number, before = 90, after = 30): string {
+  return segments
+    .filter((s) => s.end >= time - before && s.start <= time + after)
+    .map((s) => clean(s.text))
+    .join(" ");
+}
+
+export function toPending(scribbles: Scribble[]): PendingScribble[] {
+  return scribbles.map((s) => ({ id: s.id, time: s.time, text: s.text.trim() }));
 }
 
 export function noteTimes(note: Note, scribbles: Scribble[]): number[] {
@@ -136,6 +152,7 @@ export function toExistingNotes(notes: Note[], scribbles: Scribble[]): ExistingN
     text: n.text,
     times: noteTimes(n, scribbles),
     written: Object.values(n.sources),
+    ...(n.detail ? { detail: n.detail } : {}),
   }));
 }
 
@@ -148,13 +165,39 @@ function cleanText(text: string): string {
     .trim();
 }
 
-function cleanContext(context: string | null | undefined): string | undefined {
-  const c = (context ?? "")
+const DETAIL_MAX_CHARS = 360;
+
+/** Parse "m:ss" or "h:mm:ss" (or a number of seconds). */
+export function parseTime(value: string | number | null | undefined): number | undefined {
+  if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : undefined;
+  const m = (value ?? "").trim().replace(/^\[|\]$/g, "").match(/^(?:(\d+):)?(\d{1,2}):(\d{2})$/);
+  if (!m) return undefined;
+  return Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+}
+
+/**
+ * Tidy a detail from the model: drop empty ones, a label it wrote itself,
+ * and anything past the length cap (cut at a sentence end where possible).
+ * A time is kept only for details that come from the video.
+ */
+export function cleanDetail(detail: NoteDetail | null | undefined, videoEnd?: number): NoteDetail | undefined {
+  if (!detail || !["video", "answer", "general"].includes(detail.kind)) return undefined;
+  let text = (detail.text ?? "")
     .trim()
-    .replace(/^[("']+|[)"']+$/g, "")
-    .replace(/^\s*(re:|context:)\s*/i, "")
+    .replace(/^\s*[-*•]\s+/, "")
+    .replace(/^\(?(from the video|answer|general knowledge|context|re)\)?\s*[:—-]\s*/i, "")
     .trim();
-  return c ? c.slice(0, 140) : undefined;
+  if (!text) return undefined;
+  if (text.length > DETAIL_MAX_CHARS) {
+    const cut = text.slice(0, DETAIL_MAX_CHARS);
+    const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "), cut.lastIndexOf("! "));
+    text = end > DETAIL_MAX_CHARS / 2 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "") + "…";
+  }
+  const out: NoteDetail = { kind: detail.kind, text };
+  if (detail.kind !== "general" && typeof detail.at === "number" && detail.at >= 0) {
+    if (videoEnd === undefined || detail.at <= videoEnd + 5) out.at = Math.floor(detail.at);
+  }
+  return out;
 }
 
 function cleanTopic(topic: string): string {
@@ -171,6 +214,7 @@ export function applyRefine(
   pending: Scribble[],
   items: RefineItem[],
   moves: TopicMove[] = [],
+  videoEnd?: number,
 ): Note[] {
   const pendingById = new Map(pending.map((s) => [s.id, s]));
   const used = new Set<string>();
@@ -191,20 +235,21 @@ export function applyRefine(
 
     const sources: Record<string, string> = {};
     for (const id of ids) sources[id] = pendingById.get(id)!.text;
-    const context = cleanContext(item.context);
+    const detail = cleanDetail(item.detail, videoEnd);
 
     const target = item.mergeInto ? noteById.get(item.mergeInto) : undefined;
     if (target) {
       target.text = text;
-      // The merged note's aside is whatever the model gives now; an old
-      // aside may no longer fit the new text.
-      target.context = context;
+      // The merged note's detail is whatever the model gives now; the old
+      // one may no longer fit the new text.
+      if (detail) target.detail = detail;
+      else delete target.detail;
       target.sources = { ...target.sources, ...sources };
       target.unrefined = false;
       if (item.topic && cleanTopic(item.topic)) target.topic = cleanTopic(item.topic);
     } else {
       const note: Note = { id: newId("n"), text, topic: cleanTopic(item.topic ?? ""), sources };
-      if (context) note.context = context;
+      if (detail) note.detail = detail;
       notes.push(note);
       noteById.set(note.id, note);
     }
@@ -270,6 +315,12 @@ export function formatTime(seconds: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
 }
 
+export const DETAIL_LABEL: Record<NoteDetail["kind"], string> = {
+  video: "From the video",
+  answer: "Answer",
+  general: "Answer, from general knowledge (not the video)",
+};
+
 export function videoLink(videoId: string, seconds: number): string {
   return `https://youtu.be/${videoId}?t=${Math.floor(seconds)}`;
 }
@@ -278,7 +329,7 @@ export function toMarkdown(
   doc: LivingDocument,
   scribbles: Scribble[],
   video: { id: string; title: string | null },
-  options: { includeScribbles?: boolean; includeContext?: boolean } = {},
+  options: { includeScribbles?: boolean } = {},
 ): string {
   const lines: string[] = [];
   const title = video.title ?? video.id;
@@ -288,8 +339,12 @@ export function toMarkdown(
     if (section.topic) lines.push(`## ${section.topic}`, "");
     for (const { note, times } of section.notes) {
       const stamps = times.map((t) => `[${formatTime(t)}](${videoLink(video.id, t)})`).join(", ");
-      const context = note.context && options.includeContext !== false ? ` *(re: “${note.context}”)*` : "";
-      lines.push(`- ${note.text}${context}${stamps ? ` (${stamps})` : ""}`);
+      lines.push(`- ${note.text}${stamps ? ` (${stamps})` : ""}`);
+      if (note.detail) {
+        const d = note.detail;
+        const at = d.at !== undefined ? ` ([${formatTime(d.at)}](${videoLink(video.id, d.at)}))` : "";
+        lines.push(`  - *${DETAIL_LABEL[d.kind]}${at}:* ${d.text.replace(/\n+/g, " ")}`);
+      }
     }
     lines.push("");
   }

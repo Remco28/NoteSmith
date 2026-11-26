@@ -11,14 +11,14 @@ const PROVIDERS: Array<{ id: Provider; name: string; keyHint: string; keyUrl: st
     name: "Anthropic",
     keyHint: "sk-ant-…",
     keyUrl: "https://console.anthropic.com/settings/keys",
-    models: ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"],
+    models: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"],
   },
   {
     id: "openai",
     name: "OpenAI",
     keyHint: "sk-…",
     keyUrl: "https://platform.openai.com/api-keys",
-    models: ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4"],
+    models: ["gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.4"],
   },
 ];
 
@@ -161,7 +161,9 @@ export function SettingsDialog({
               ))}
             </datalist>
             <p className="mt-1.5 text-caption text-faint">
-              Any {p.name} model id. Refining is light work, so a small, fast model is enough.
+              Any {p.name} model id. The default fills in from the video well; a smaller model
+              {p.id === "anthropic" ? " (claude-haiku-5-5)" : " (gpt-5.4-nano)"} costs about a third as much but
+              explains less.
             </p>
           </div>
 
@@ -177,21 +179,6 @@ export function SettingsDialog({
               <span className="block text-caption text-faint">
                 Refine new scribbles a few seconds after you stop adding them.{" "}
                 {serverKey[draft.provider] && !key.trim() ? "This server has its own key, so yours is optional." : ""}
-              </span>
-            </span>
-          </label>
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={draft.showContext}
-              onChange={(e) => setDraft({ ...draft, showContext: e.target.checked })}
-              className="mt-0.5 h-4 w-4 cursor-pointer accent-[var(--accent)]"
-            />
-            <span>
-              <span className="block text-body text-ink">Show what pointing scribbles refer to</span>
-              <span className="block text-caption text-faint">
-                For a scribble like &ldquo;lol that&rdquo;, quote what was being said just before, marked (re:
-                &ldquo;…&rdquo;). It&apos;s a best guess at what you reacted to. Your own words are never changed.
               </span>
             </span>
           </label>

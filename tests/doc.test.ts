@@ -8,6 +8,9 @@ import {
   sections,
   toMarkdown,
   transcriptAround,
+  transcriptForPrompt,
+  cleanDetail,
+  parseTime,
 } from "@/lib/doc";
 import type { LivingDocument, Scribble } from "@/types/notesmith";
 
@@ -50,8 +53,8 @@ test("deleting a scribble removes its note", () => {
 test("applyRefine keeps every scribble even when the model misbehaves", () => {
   const pending = [s("a", 10, "nvidia competitors??"), s("b", 20, "water per prompt?"), s("c", 30, "missed me")];
   const notes = applyRefine([], pending, [
-    { sourceIds: ["a", "zzz"], text: "- Who competes with Nvidia?", topic: "## Nvidia:", mergeInto: null, context: null },
-    { sourceIds: ["a", "b"], text: "Water per prompt?", topic: "AI", mergeInto: "does-not-exist", context: null },
+    { sourceIds: ["a", "zzz"], text: "- Who competes with Nvidia?", topic: "## Nvidia:", mergeInto: null, detail: null },
+    { sourceIds: ["a", "b"], text: "Water per prompt?", topic: "AI", mergeInto: "does-not-exist", detail: null },
   ]);
   assert.equal(notes.length, 3);
   const [n1, n2, n3] = notes;
@@ -67,7 +70,7 @@ test("applyRefine keeps every scribble even when the model misbehaves", () => {
 test("merging into an existing note keeps its old sources", () => {
   const kept = [{ id: "n1", text: "Nvidia competitors?", topic: "Nvidia", sources: { a: "x" } }];
   const notes = applyRefine(kept, [s("b", 40, "AMD maybe")], [
-    { sourceIds: ["b"], text: "Nvidia competitors? AMD maybe.", topic: "Nvidia", mergeInto: "n1", context: null },
+    { sourceIds: ["b"], text: "Nvidia competitors? AMD maybe.", topic: "Nvidia", mergeInto: "n1", detail: null },
   ]);
   assert.equal(notes.length, 1);
   assert.deepEqual(Object.keys(notes[0].sources).sort(), ["a", "b"]);
@@ -89,13 +92,44 @@ test("sections follow the video and group topics case-insensitively", () => {
   assert.deepEqual(out[1].notes.map((n) => n.note.id), ["3", "1"]);
 });
 
-test("transcriptAround takes what was said just before", () => {
+test("transcriptAround takes the moment and what came before", () => {
   const segs = Array.from({ length: 200 }, (_, i) => ({ start: i * 5, end: i * 5 + 5, text: `w${i}` }));
-  const ctx = transcriptAround(segs, 500);
-  assert.ok(ctx.includes("w99"));
-  assert.ok(ctx.includes("w86"));
-  assert.ok(!ctx.includes("w80 "));
-  assert.ok(!ctx.includes("w103"));
+  const ctx = ` ${transcriptAround(segs, 500)} `;
+  assert.ok(ctx.includes(" w99 "));
+  assert.ok(ctx.includes(" w83 "));
+  assert.ok(!ctx.includes(" w80 "));
+  assert.ok(ctx.includes(" w105 "));
+  assert.ok(!ctx.includes(" w108 "));
+});
+
+test("the prompt transcript is the whole video in stamped paragraphs", () => {
+  const segs = Array.from({ length: 40 }, (_, i) => ({ start: i * 5, end: i * 5 + 5, text: `w${i}\n` }));
+  const t = transcriptForPrompt(segs, [100]);
+  const lines = t.split("\n");
+  assert.equal(lines.length, 7, "30-second paragraphs");
+  assert.match(lines[0], /^\[0:00\] w0 w1 w2 w3 w4 w5$/);
+  assert.match(lines[1], /^\[0:30\] w6 /);
+});
+
+test("a very long transcript is cut to a window around the scribbles", () => {
+  // 5 hours of 5-second captions, each about 100 characters.
+  const segs = Array.from({ length: 3600 }, (_, i) => ({ start: i * 5, end: i * 5 + 5, text: `s${i} ` + "x".repeat(95) }));
+  const t = transcriptForPrompt(segs, [9000]);
+  assert.ok(t.length <= 240_000);
+  assert.ok(t.includes(" s1800 "), "keeps the scribble's moment");
+  assert.ok(!t.includes("[0:00]"), "drops the far start");
+});
+
+test("details are tidied, capped and only time-linked when from the video", () => {
+  assert.equal(parseTime("12:04"), 724);
+  assert.equal(parseTime("[1:02:03]"), 3723);
+  assert.equal(parseTime("soon"), undefined);
+  assert.equal(cleanDetail({ kind: "video", text: "  " }), undefined);
+  assert.deepEqual(cleanDetail({ kind: "video", text: "From the video: they ran both.", at: 90 }, 600), { kind: "video", text: "they ran both.", at: 90 });
+  assert.equal(cleanDetail({ kind: "video", text: "x", at: 9999 }, 600)?.at, undefined, "a time past the end is dropped");
+  assert.equal(cleanDetail({ kind: "general", text: "x", at: 30 })?.at, undefined);
+  const long = cleanDetail({ kind: "answer", text: "One sentence here. ".repeat(40) })!;
+  assert.ok(long.text.length <= 360 && long.text.endsWith("."));
 });
 
 test("markdown export links each note to its moment", () => {
@@ -110,37 +144,26 @@ test("markdown export links each note to its moment", () => {
   assert.match(md, /## Raw scribbles\n\n- 12:04 x/);
 });
 
-test("context stays apart from the user's words, in the doc and the export", () => {
-  const notes = applyRefine([], [s("a", 62, "lol that")], [
-    { sourceIds: ["a"], text: "Lol, that.", topic: "Banking", mergeInto: null, context: "(re: naming the bank after a robbed mountain)" },
+test("a detail stays apart from the user's words, in the doc and the export", () => {
+  const notes = applyRefine([], [s("a", 62, "what is erebor?")], [
+    {
+      sourceIds: ["a"],
+      text: "What is Erebor?",
+      topic: "Banking",
+      mergeInto: null,
+      detail: { kind: "answer", text: "The bank, named after the Lonely Mountain.", at: 58 },
+    },
   ]);
-  assert.equal(notes[0].text, "Lol, that.");
-  assert.equal(notes[0].context, "naming the bank after a robbed mountain");
-  const md = toMarkdown({ notes, updatedAt: 1 }, [s("a", 62, "lol that")], { id: "abcdefghijk", title: "T" });
-  assert.match(md, /- Lol, that\. \*\(re: “naming the bank after a robbed mountain”\)\* \(\[1:02\]/);
+  assert.equal(notes[0].text, "What is Erebor?");
+  assert.deepEqual(notes[0].detail, { kind: "answer", text: "The bank, named after the Lonely Mountain.", at: 58 });
+  const md = toMarkdown({ notes, updatedAt: 1 }, [s("a", 62, "what is erebor?")], { id: "abcdefghijk", title: "T" });
+  assert.match(md, /- What is Erebor\? \(\[1:02\]\(https:\/\/youtu\.be\/abcdefghijk\?t=62\)\)\n  - \*Answer \(\[0:58\]\(https:\/\/youtu\.be\/abcdefghijk\?t=58\)\):\* The bank/);
 });
 
-test("a context quote survives only if it was really said just before", async () => {
-  const { verifyContext } = await import("@/lib/refine/run");
-  const pending = [{ id: "a", time: 62, text: "lol that", context: "", recent: "And the bank is named after the Lonely Mountain, in The Hobbit." }];
-  const item = { sourceIds: ["a"], text: "Lol, that.", topic: "Bank", mergeInto: null };
-  const [kept] = verifyContext([{ ...item, context: "the bank is named after the lonely mountain in The Hobbit" }], pending);
-  assert.equal(kept.context, "the bank is named after the lonely mountain in The Hobbit");
-  const [dropped] = verifyContext([{ ...item, context: "naming the bank after a robbed mountain" }], pending);
-  assert.equal(dropped.context, null);
-  // Whole words only: "he" must not match inside "the".
-  const [partial] = verifyContext([{ ...item, context: "he bank is named" }], pending);
-  assert.equal(partial.context, null);
-  // A scribble that names its own subject never gets an aside.
-  const named = [{ ...pending[0], text: "lol thermostats" }];
-  const [noAside] = verifyContext([{ ...item, context: "the bank is named after the lonely mountain" }], named);
-  assert.equal(noAside.context, null);
-  // An item that mixes a reaction with a named scribble gets no aside.
-  const mixed = [...pending, { id: "b", time: 63, text: "thermostats", context: "", recent: pending[0].recent }];
-  const [mixedItem] = verifyContext([{ ...item, sourceIds: ["a", "b"], context: "the bank is named after the lonely mountain" }], mixed);
-  assert.equal(mixedItem.context, null);
-  // Contractions stay whole: "can't" does not validate "can".
-  const contr = [{ ...pending[0], recent: "He said that I can't go." }];
-  const [c] = verifyContext([{ ...item, context: "He said that I can" }], contr);
-  assert.equal(c.context, null);
+test("a merge replaces the old detail, or removes it", () => {
+  const kept = [{ id: "n1", text: "Q?", topic: "T", sources: { a: "q?" }, detail: { kind: "general" as const, text: "old" } }];
+  const notes = applyRefine(kept, [s("b", 40, "also r")], [
+    { sourceIds: ["b"], text: "Q? Also R.", topic: "T", mergeInto: "n1", detail: null },
+  ]);
+  assert.equal(notes[0].detail, undefined);
 });

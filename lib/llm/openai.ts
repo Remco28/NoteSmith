@@ -11,7 +11,8 @@ export async function openaiJson(req: JsonRequest): Promise<JsonResult> {
       max_completion_tokens: req.maxTokens,
       messages: [
         { role: "system", content: req.system },
-        { role: "user", content: req.user },
+        // The transcript goes first so OpenAI's automatic prefix cache can reuse it.
+        { role: "user", content: req.context ? `${req.context}\n\n${req.user}` : req.user },
       ],
       response_format: {
         type: "json_schema",
