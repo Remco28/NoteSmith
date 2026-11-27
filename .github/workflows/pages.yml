@@ -27,10 +27,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Tells the build which folder the site is served from: the root on a
+      # custom domain (notesmith.teamremco.org), /<repository> on github.io.
+      - id: pages
+        uses: actions/configure-pages@v5
       - run: npm run build
         env:
-          # Served from https://<owner>.github.io/<repository>/
-          NOTESMITH_BASE_PATH: /${{ github.event.repository.name }}
+          NOTESMITH_BASE_PATH: ${{ steps.pages.outputs.base_path }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out

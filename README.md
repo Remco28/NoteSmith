@@ -34,7 +34,7 @@ npm run build      # static site in out/
 
 ## Publish it on GitHub Pages
 
-`.github/workflows/pages.yml` builds the site and publishes it on every push to `main`. One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**. The site is then at `https://<owner>.github.io/<repository>/` (the workflow sets `NOTESMITH_BASE_PATH` to match). Any static host works: build with `NOTESMITH_BASE_PATH` set to the folder it's served from, or unset for the root.
+`.github/workflows/pages.yml` builds the site and publishes it on every push to `main`. One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**. The site is then at `https://<owner>.github.io/<repository>/`, or at the root of a custom domain set in the same Settings page (this one is at https://notesmith.teamremco.org/). The workflow asks GitHub which folder the site is served from and builds for it. Any static host works: build with `NOTESMITH_BASE_PATH` set to the folder it's served from, or unset for the root.
 
 ## API keys and models
 
