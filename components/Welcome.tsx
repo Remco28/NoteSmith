@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { formatTime } from "@/lib/doc";
-import { formatCost } from "@/lib/llm/prices";
+import { formatTokens, totalTokens } from "@/lib/usage";
 import type { Session } from "@/types/notesmith";
 import { KeyIcon, SettingsIcon, XIcon } from "./icons";
 import { BookmarkLink } from "./BookmarkLink";
@@ -35,7 +35,7 @@ export function Welcome({
   onOpenSettings: () => void;
 }) {
   const [url, setUrl] = useState("");
-  const totalCost = sessions.reduce((sum, s) => sum + (s.spend?.costUsd ?? 0), 0);
+  const allTokens = sessions.reduce((sum, s) => sum + (s.tokens ? totalTokens(s.tokens) : 0), 0);
 
   return (
     <main className="flex min-h-full flex-col">
@@ -127,12 +127,9 @@ export function Welcome({
           <section className="mt-10 w-full">
             <div className="mb-2 flex items-baseline justify-between gap-3">
               <h2 className="text-caption font-medium uppercase tracking-wide text-faint">Recent</h2>
-              {totalCost > 0 && (
-                <span
-                  className="text-caption tabular-nums text-faint"
-                  title="What forging the videos below has cost, worked out from token counts at list prices."
-                >
-                  {formatCost(totalCost)} spent on these
+              {allTokens > 0 && (
+                <span className="text-caption tabular-nums text-faint" title="Tokens sent to and written by the AI while forging the videos below.">
+                  {formatTokens(allTokens)} tokens used on these
                 </span>
               )}
             </div>
@@ -160,7 +157,7 @@ export function Welcome({
                           {s.doc.notes.length === 1 ? "" : "s"}
                           {n > 0 ? ` · last at ${formatTime(Math.max(...s.scribbles.map((x) => x.time)))}` : ""} ·{" "}
                           {ago(s.lastOpenedAt)}
-                          {s.spend && s.spend.calls > 0 ? ` · ${formatCost(s.spend.costUsd)}` : ""}
+                          {s.tokens && s.tokens.calls > 0 ? ` · ${formatTokens(totalTokens(s.tokens))} tokens` : ""}
                         </span>
                       </span>
                     </button>

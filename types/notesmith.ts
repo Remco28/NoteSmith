@@ -107,8 +107,8 @@ export interface Session {
   purpose?: string;
   /** Earlier versions of the document, oldest first. */
   history?: DocVersion[];
-  /** Tokens and cost of forging this video so far. */
-  spend?: Spend;
+  /** Tokens forging this video has used so far. */
+  tokens?: TokenUse;
   /** The writer undid a change of shape: keep the current one until they ask for a re-forge. */
   keepShape?: boolean;
   lastOpenedAt: number;
@@ -178,16 +178,12 @@ export interface RefineResponse {
   usage: { inputTokens: number; outputTokens: number; cachedTokens: number; cacheWriteTokens: number; calls: number };
 }
 
-/** What forging one video has used so far. */
-export interface Spend {
-  /** Dollars, for the calls whose model has a known price. */
-  costUsd: number;
+/** Tokens forging one video has used so far. */
+export interface TokenUse {
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
   cacheWriteTokens: number;
   /** Model calls made. */
   calls: number;
-  /** Calls to a model with no known price; their tokens count, their cost doesn't. */
-  unpricedCalls: number;
 }
