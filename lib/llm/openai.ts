@@ -44,6 +44,8 @@ export async function openaiJson(req: JsonRequest): Promise<JsonResult> {
     usage: {
       inputTokens: completion.usage?.prompt_tokens ?? 0,
       outputTokens: completion.usage?.completion_tokens ?? 0,
+      // OpenAI caches long prompts on its own and reports the hits here.
+      cachedTokens: completion.usage?.prompt_tokens_details?.cached_tokens ?? 0,
     },
   };
 }

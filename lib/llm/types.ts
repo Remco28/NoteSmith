@@ -11,8 +11,18 @@ export interface JsonRequest {
 
 export interface JsonResult {
   json: unknown;
-  /** inputTokens counts every input token, cached or not. */
-  usage: { inputTokens: number; outputTokens: number; cachedTokens?: number };
+  usage: Usage;
+}
+
+/** Tokens one or more model calls used. */
+export interface Usage {
+  /** Every input token: plain, read from the cache, and written to it. */
+  inputTokens: number;
+  outputTokens: number;
+  /** Input tokens read from the cache (billed at a small fraction). */
+  cachedTokens?: number;
+  /** Input tokens written to the cache (billed at a premium; one-hour cache here). */
+  cacheWriteTokens?: number;
 }
 
 /** A failure with a message that is safe and useful to show the user. */

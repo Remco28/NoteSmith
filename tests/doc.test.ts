@@ -242,3 +242,24 @@ test("the prompt carries the purpose and the shape", () => {
   assert.match(buildUserPrompt([], pending, { shape: "steps" }), /Current shape: "steps"/);
   assert.match(buildUserPrompt([], pending, { shape: "topics", shapeFixed: true }), /Shape: use "topics"/);
 });
+
+test("cost is worked out from tokens at each kind's price", async () => {
+  const { costOf, addSpend, formatCost } = await import("@/lib/llm/prices");
+  // A first forge on Sonnet 5.5: the transcript goes into the one-hour cache.
+  const first = { inputTokens: 10_675, cachedTokens: 0, cacheWriteTokens: 10_528, outputTokens: 187 };
+  // 147 plain x $2 + 10,528 written x $4 + 187 out x $10, per million.
+  assert.ok(Math.abs(costOf("claude-sonnet-5-5", first)! - 0.044276) < 1e-9);
+  // A later forge reads it back for a tenth of a cent per thousand.
+  const later = { inputTokens: 10_947, cachedTokens: 10_528, cacheWriteTokens: 0, outputTokens: 355 };
+  assert.equal(formatCost(costOf("claude-sonnet-5-5", later)!), "0.5¢");
+  assert.equal(formatCost(costOf("claude-haiku-5-5", first)!), "0.2¢");
+  assert.equal(costOf("gpt-5.4-mini", first), null);
+
+  let spend = addSpend(undefined, "claude-sonnet-5-5", { ...first, calls: 1 });
+  spend = addSpend(spend, "gpt-5.4-mini", { ...later, calls: 2 });
+  assert.equal(spend.calls, 3);
+  assert.equal(spend.unpricedCalls, 2);
+  assert.equal(formatCost(spend.costUsd), "4.4¢");
+  assert.equal(formatCost(1.234), "$1.23");
+  assert.equal(formatCost(0.00001), "<0.1¢");
+});

@@ -31,6 +31,7 @@ import { extractVideoId } from "@/lib/utils/youtube";
 import { IMPORT_PREFIX, readImport } from "@/lib/bookmarklet";
 import { LlmError } from "@/lib/llm/types";
 import { refine } from "@/lib/refine/run";
+import { addSpend } from "@/lib/llm/prices";
 import { fetchVideoInfo } from "@/lib/video-info";
 import type {
   DocShape,
@@ -444,7 +445,12 @@ export function Workspace() {
           saved = true;
           setSession((s) =>
             s && s.video.id === forVideo
-              ? { ...s, doc: committed, history: first ? pushVersion(s.history, before) : s.history }
+              ? {
+                  ...s,
+                  doc: committed,
+                  history: first ? pushVersion(s.history, before) : s.history,
+                  spend: addSpend(s.spend, cfg.models[cfg.provider], body.usage),
+                }
               : s,
           );
         }
@@ -739,6 +745,7 @@ export function Workspace() {
       onPreview={setPreviewId}
       onRestore={(v) => restoreDoc(v.doc)}
       purpose={session.purpose ?? ""}
+      spend={session.spend}
       onPurpose={setPurpose}
       scribbles={scribbles}
       forging={forging}

@@ -3,7 +3,8 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { formatTime, sections } from "@/lib/doc";
 import { revealInPanel } from "@/lib/scroll";
-import type { DocVersion, LivingDocument, NoteDetail, Scribble } from "@/types/notesmith";
+import { formatCost } from "@/lib/llm/prices";
+import type { DocVersion, LivingDocument, NoteDetail, Scribble, Spend } from "@/types/notesmith";
 import { AlertIcon, CopyIcon, DownloadIcon, HammerIcon, HistoryIcon, RefreshIcon } from "./icons";
 import { Smith } from "./Smith";
 
@@ -66,6 +67,7 @@ export function DocPanel({
   onRestore,
   purpose,
   onPurpose,
+  spend,
   scribbles,
   forging,
   progress,
@@ -94,6 +96,8 @@ export function DocPanel({
   onRestore: (version: DocVersion) => void;
   purpose: string;
   onPurpose: (text: string) => void;
+  /** Tokens and cost of forging this video so far. */
+  spend?: Spend;
   scribbles: Scribble[];
   forging: boolean;
   progress: string | null;
@@ -181,6 +185,7 @@ export function DocPanel({
         <div className="hidden min-w-0 items-center gap-2 truncate sm:flex" aria-live="polite">
           {status}
         </div>
+        {spend && spend.calls > 0 && <SpendLabel spend={spend} />}
         <div className="flex-1" />
         <button
           type="button"
@@ -511,5 +516,34 @@ function PurposeRow({
         </span>
       )}
     </div>
+  );
+}
+
+const n = (x: number) => x.toLocaleString();
+
+/** What forging this video has cost so far, with the token breakdown on hover. */
+function SpendLabel({ spend }: { spend: Spend }) {
+  const plain = Math.max(0, spend.inputTokens - spend.cachedTokens - spend.cacheWriteTokens);
+  const lines = [
+    `Forging this video so far: ${formatCost(spend.costUsd)}, over ${n(spend.calls)} AI call${spend.calls === 1 ? "" : "s"}.`,
+    "",
+    `Sent: ${n(spend.inputTokens)} tokens`,
+    `  · ${n(spend.cacheWriteTokens)} stored in the cache (the transcript, on the first forge in an hour)`,
+    `  · ${n(spend.cachedTokens)} read back from the cache (cheap)`,
+    `  · ${n(plain)} new (instructions, notes and scribbles)`,
+    `Written by the AI: ${n(spend.outputTokens)} tokens`,
+    "",
+    "Worked out from the token counts at list prices; your bill may differ slightly.",
+  ];
+  if (spend.unpricedCalls > 0) {
+    lines.push(
+      `${n(spend.unpricedCalls)} call${spend.unpricedCalls === 1 ? "" : "s"} used a model NoteSmith has no price for, so ${spend.unpricedCalls === 1 ? "it isn't" : "they aren't"} in the total.`,
+    );
+  }
+  return (
+    <span className="hidden shrink-0 cursor-default text-caption tabular-nums text-faint md:inline" title={lines.join("\n")}>
+      {formatCost(spend.costUsd)}
+      {spend.unpricedCalls > 0 ? "+" : ""} so far
+    </span>
   );
 }

@@ -45,7 +45,7 @@ Each person uses their own key:
 
 - **Provider:** Anthropic (default) or OpenAI.
 - **Model:** any model id. The default is `claude-sonnet-5-5`. `claude-haiku-5-5` costs about a twentieth as much, but often leaves notes vague (it doesn't name who "they" are).
-- **Cost:** every forge sends the whole transcript (about 25,000 tokens per hour of video). It is cached for an hour after its last use, so only the first forge pays to send it in full; later ones read it at a tenth of the price. With Sonnet 5.5 that's roughly 10 to 20 cents for the first forge on an hour-long video and about 1 cent for each one after.
+- **Cost:** every forge sends the whole transcript (about 25,000 tokens per hour of video). It is cached for an hour after its last use, so only the first forge pays to send it in full; later ones read it at a tenth of the price. With Sonnet 5.5 that's roughly 10 to 20 cents for the first forge on an hour-long video and about 1 cent for each one after. The Living Document shows what the current video has cost so far (hover it for the token breakdown), and the start page shows each video's cost and the total. Both are worked out from the token counts the API reports, using the prices in `lib/llm/prices.ts`; update that table when prices change. OpenAI models have no prices there yet, so only their tokens are counted.
 
 ## Where things are
 

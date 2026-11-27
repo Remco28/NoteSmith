@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatTime } from "@/lib/doc";
+import { formatCost } from "@/lib/llm/prices";
 import type { Session } from "@/types/notesmith";
 import { KeyIcon, SettingsIcon, XIcon } from "./icons";
 import { BookmarkLink } from "./BookmarkLink";
@@ -34,6 +35,7 @@ export function Welcome({
   onOpenSettings: () => void;
 }) {
   const [url, setUrl] = useState("");
+  const totalCost = sessions.reduce((sum, s) => sum + (s.spend?.costUsd ?? 0), 0);
 
   return (
     <main className="flex min-h-full flex-col">
@@ -123,7 +125,17 @@ export function Welcome({
 
         {sessions.length > 0 && (
           <section className="mt-10 w-full">
-            <h2 className="mb-2 text-caption font-medium uppercase tracking-wide text-faint">Recent</h2>
+            <div className="mb-2 flex items-baseline justify-between gap-3">
+              <h2 className="text-caption font-medium uppercase tracking-wide text-faint">Recent</h2>
+              {totalCost > 0 && (
+                <span
+                  className="text-caption tabular-nums text-faint"
+                  title="What forging the videos below has cost, worked out from token counts at list prices."
+                >
+                  {formatCost(totalCost)} spent on these
+                </span>
+              )}
+            </div>
             <ul className="divide-y divide-border overflow-hidden rounded-md border border-border bg-surface">
               {sessions.map((s) => {
                 const n = s.scribbles.length;
@@ -148,6 +160,7 @@ export function Welcome({
                           {s.doc.notes.length === 1 ? "" : "s"}
                           {n > 0 ? ` · last at ${formatTime(Math.max(...s.scribbles.map((x) => x.time)))}` : ""} ·{" "}
                           {ago(s.lastOpenedAt)}
+                          {s.spend && s.spend.calls > 0 ? ` · ${formatCost(s.spend.costUsd)}` : ""}
                         </span>
                       </span>
                     </button>

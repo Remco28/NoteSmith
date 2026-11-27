@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { anthropicJson } from "@/lib/llm/anthropic";
 import { openaiJson } from "@/lib/llm/openai";
-import { LlmError, type JsonRequest, type JsonResult } from "@/lib/llm/types";
+import { LlmError, type JsonRequest, type JsonResult, type Usage } from "@/lib/llm/types";
 import { parseTime } from "@/lib/doc";
 import { OUTPUT_SCHEMA, SYSTEM_PROMPT, buildTranscriptBlock, buildUserPrompt } from "@/lib/refine/prompt";
 import type { DocShape, Provider, RefineItem, RefineRequest, RefineResponse, TopicMove } from "@/types/notesmith";
@@ -77,12 +77,17 @@ function coveredIds(items: RefineItem[], allowed: Set<string>): Set<string> {
 
 export async function refine(req: RefineRequest, apiKey: string): Promise<RefineResponse> {
   const pendingIds = new Set(req.pending.map((p) => p.id));
-  const usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
+  const usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0, cacheWriteTokens: 0, calls: 0 };
+  const add = (u: Usage) => {
+    usage.inputTokens += u.inputTokens;
+    usage.outputTokens += u.outputTokens;
+    usage.cachedTokens += u.cachedTokens ?? 0;
+    usage.cacheWriteTokens += u.cacheWriteTokens ?? 0;
+    usage.calls += 1;
+  };
 
   const first = await callOnce(req, apiKey);
-  usage.inputTokens += first.usage.inputTokens;
-  usage.outputTokens += first.usage.outputTokens;
-  usage.cachedTokens += first.usage.cachedTokens ?? 0;
+  add(first.usage);
   const items = [...first.items];
 
   let covered = coveredIds(items, pendingIds);
@@ -92,9 +97,7 @@ export async function refine(req: RefineRequest, apiKey: string): Promise<Refine
     try {
       // The retry keeps the shape the first answer chose.
       const retry = await callOnce({ ...req, pending: missingFirst, shape: first.shape, shapeFixed: true }, apiKey);
-      usage.inputTokens += retry.usage.inputTokens;
-      usage.outputTokens += retry.usage.outputTokens;
-      usage.cachedTokens += retry.usage.cachedTokens ?? 0;
+      add(retry.usage);
       items.push(...retry.items);
       covered = coveredIds(items, pendingIds);
     } catch {
