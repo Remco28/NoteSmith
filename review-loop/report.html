@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoteSmith review</title>
+<style>
+  :root {
+    --bg: #faf7f2; --card: #ffffff; --ink: #2a241d; --muted: #6d6256; --line: #e3dbd0;
+    --high: #c0392b; --high-bg: #fbe9e6; --med: #b86e00; --med-bg: #fdf1dc; --low: #5b6b7a; --low-bg: #eef1f4;
+    --ok: #2e7d4f; --ok-bg: #e5f4ea; --accent: #d9731f; --box: #f3ece2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15120f; --card: #1e1a16; --ink: #ede5da; --muted: #a6998a; --line: #3a3229;
+      --high: #ff7a6b; --high-bg: #3a1d19; --med: #f0b35a; --med-bg: #36280f; --low: #a9b8c6; --low-bg: #222a31;
+      --ok: #7fcf9a; --ok-bg: #18301f; --accent: #f0883a; --box: #26211b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 920px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 32px 0 10px; }
+  h3 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 6px 0; }
+  .muted { color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 10px 0; }
+  .stakes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .stakes div { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .stakes b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; white-space: nowrap; }
+  .high { color: var(--high); background: var(--high-bg); }
+  .med { color: var(--med); background: var(--med-bg); }
+  .low { color: var(--low); background: var(--low-bg); }
+  .ok { color: var(--ok); background: var(--ok-bg); }
+  .decisions { background: var(--box); border: 2px solid var(--accent); border-radius: 10px; padding: 14px 16px; }
+  .decisions ol { margin: 6px 0 0; padding-left: 20px; }
+  .decisions li { margin: 8px 0; }
+  .rec { color: var(--accent); font-weight: 600; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tabs button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .panel[hidden] { display: none; }
+  .finding { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  @media (max-width: 720px) { .finding { grid-template-columns: 1fr; } }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { fill: var(--ink); font: 12px system-ui, sans-serif; }
+  svg .box { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+  svg .bad { fill: var(--high-bg); stroke: var(--high); stroke-width: 1.5; }
+  svg .good { fill: var(--ok-bg); stroke: var(--ok); stroke-width: 1.5; }
+  svg .arrow { stroke: var(--muted); stroke-width: 1.5; fill: none; marker-end: url(#a); }
+  svg .pin-h { fill: var(--high); } svg .pin-m { fill: var(--med); } svg .pin-l { fill: var(--low); }
+  svg .pin-t { fill: #fff; font-weight: 700; font-size: 11px; }
+  details { margin: 6px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  ul.lows { margin: 6px 0; padding-left: 18px; }
+  ul.lows li { margin: 3px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  td, th { border-bottom: 1px solid var(--line); padding: 6px 4px; text-align: left; vertical-align: top; }
+  dl.gloss { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 6px 0; }
+  dl.gloss dt { font-weight: 600; }
+  dl.gloss dd { margin: 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>NoteSmith review: done, ready for you to try</h1>
+  <p class="muted">Two rounds of test users plus independent code audits, 25 November 2026. Every serious and medium problem found is fixed. Three decisions are yours (below).</p>
+
+  <h2>The stakes</h2>
+  <div class="stakes">
+    <div><b>What it is</b>A tool that turns your messy scribbles during a video into clean notes, keeping your words.</div>
+    <div><b>Who relies on it</b>You, running it on your own computer. Maybe a few others, each with their own API key.</div>
+    <div><b>What a failure costs</b>Notes that say something you didn't mean. That breaks the one promise. Everything else is polish.</div>
+    <div><b>When to stop</b>When no note in normal use adds, drops or changes what you wrote, and nothing loses your work.</div>
+  </div>
+
+  <h2>How it went</h2>
+  <div class="card">
+    <svg viewBox="0 0 640 210" role="img" aria-label="Serious and medium problems per round: round 1, 3 serious and 4 medium; round 2, 4 serious and 12 medium; after final fixes, 0 known.">
+      <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+      <line x1="60" y1="170" x2="620" y2="170" stroke="var(--line)"/>
+      <!-- round 1 -->
+      <rect x="110" y="140" width="40" height="30" class="pin-h"/><rect x="155" y="130" width="40" height="40" class="pin-m"/>
+      <text x="130" y="134" text-anchor="middle">3</text><text x="175" y="124" text-anchor="middle">4</text>
+      <text x="152" y="190" text-anchor="middle">Round 1</text>
+      <!-- round 2 -->
+      <rect x="290" y="130" width="40" height="40" class="pin-h"/><rect x="335" y="50" width="40" height="120" class="pin-m"/>
+      <text x="310" y="124" text-anchor="middle">4</text><text x="355" y="44" text-anchor="middle">12</text>
+      <text x="332" y="190" text-anchor="middle">Round 2</text>
+      <!-- after -->
+      <rect x="470" y="166" width="40" height="4" class="pin-h"/><rect x="515" y="166" width="40" height="4" class="pin-m"/>
+      <text x="512" y="155" text-anchor="middle">0 known</text>
+      <text x="512" y="190" text-anchor="middle">After fixes</text>
+      <rect x="60" y="10" width="12" height="12" class="pin-h"/><text x="78" y="20">serious</text>
+      <rect x="140" y="10" width="12" height="12" class="pin-m"/><text x="158" y="20">medium</text>
+    </svg>
+    <p class="muted">Round 2 looks worse only because I added code auditors, who read every line and find more than testers do. Most of round 2's mediums came from round 1's own fixes. Each was found, fixed and checked again.</p>
+  </div>
+
+  <h2>Where the problems were</h2>
+  <div class="card">
+    <svg viewBox="0 0 640 230" role="img" aria-label="Map of NoteSmith: start page leads to the workspace with video, transcript, scribbles and Living Document; the AI refine step sits between scribbles and the document; settings and export hang off the document. Most serious problems were in the AI refine step.">
+      <rect x="10" y="90" width="90" height="44" rx="8" class="box"/><text x="55" y="116" text-anchor="middle">Start page</text>
+      <path d="M100,112 L140,112" class="arrow" color="var(--muted)"/>
+      <rect x="140" y="20" width="130" height="44" rx="8" class="box"/><text x="205" y="46" text-anchor="middle">Video</text>
+      <rect x="290" y="20" width="130" height="44" rx="8" class="box"/><text x="355" y="46" text-anchor="middle">Transcript</text>
+      <rect x="140" y="150" width="130" height="44" rx="8" class="box"/><text x="205" y="176" text-anchor="middle">Your scribbles</text>
+      <rect x="290" y="150" width="130" height="44" rx="8" class="bad"/><text x="355" y="170" text-anchor="middle">AI refine step</text><text x="355" y="185" text-anchor="middle" class="muted">(server)</text>
+      <rect x="450" y="150" width="140" height="44" rx="8" class="box"/><text x="520" y="176" text-anchor="middle">Living Document</text>
+      <rect x="450" y="20" width="140" height="44" rx="8" class="box"/><text x="520" y="46" text-anchor="middle">Settings · Export</text>
+      <path d="M270,172 L290,172" class="arrow" color="var(--muted)"/>
+      <path d="M420,172 L450,172" class="arrow" color="var(--muted)"/>
+      <path d="M355,64 L355,150" class="arrow" color="var(--muted)"/>
+      <path d="M520,150 L520,64" class="arrow" color="var(--muted)"/>
+      <circle cx="418" cy="152" r="11" class="pin-h"/><text x="418" y="156" text-anchor="middle" class="pin-t">6</text>
+      <circle cx="268" cy="152" r="11" class="pin-h"/><text x="268" y="156" text-anchor="middle" class="pin-t">1</text>
+      <circle cx="418" cy="22" r="11" class="pin-m"/><text x="418" y="26" text-anchor="middle" class="pin-t">3</text>
+      <circle cx="588" cy="152" r="11" class="pin-m"/><text x="588" y="156" text-anchor="middle" class="pin-t">5</text>
+      <circle cx="588" cy="22" r="11" class="pin-m"/><text x="588" y="26" text-anchor="middle" class="pin-t">4</text>
+      <text x="10" y="222" class="muted">Red: serious. Amber: medium. Most were in the AI step, where your words could change.</text>
+    </svg>
+  </div>
+
+  <h2>Decisions for you</h2>
+  <div class="decisions">
+    <ol>
+      <li><b>The "(re: …)" aside.</b> When you write only "lol that" or "this", NoteSmith can quote what was being said just before, shown apart from your words. The quote is always really said, which code checks, but which line you reacted to is a guess, and testers caught wrong guesses. <span class="rec">I recommend: keep it off by default (as now). Remove it if you never turn it on.</span></li>
+      <li><b>Corrections and doubt.</b> If you write "fired at 24 right? paid 20B i think" and later "actually 21, and 2B", the note becomes "fired at 21. Facebook paid 2 billion for it. (Corrected from 24 and 20 billion.)" The "right?" and "I think" go, because your correction settled them. The judging AI disagrees: it wants the doubt kept. <span class="rec">I recommend: keep it as is.</span></li>
+      <li><b>Misheard names.</b> "andrew" (the captions' spelling) now stays as you wrote it, sometimes with the AI's guess marked: "Andrew (Anduril?)". It no longer swaps your word silently. <span class="rec">I recommend: keep.</span></li>
+      <li><b>Try it yourself.</b> The test guide is <code>human_feedback/round-2026-11-25-v2/index.html</code>. Ten minutes on a video you actually want to watch matters most.</li>
+    </ol>
+  </div>
+
+  <h2>Rounds</h2>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="false" data-tab="r1">Round 1</button>
+    <button role="tab" aria-selected="true" data-tab="r2">Round 2 and final fixes</button>
+  </div>
+
+  <section class="panel" data-panel="r1" hidden>
+    <p>Six test users: a viewer who thinks while watching, a first-timer with no key, a returning user, a sceptic trying to break the promise, a polish critic and a keyboard-only user. <span class="tag high">serious</span> AI guessed what "lol that" meant and wrote it as your words; corrections contradicted themselves; small wording drift ("$9k", a question mark added to a statement). <span class="tag med">medium</span> catch-all topics, faint text, 80 Tab stops in the transcript, keyboard focus lost. All fixed.</p>
+  </section>
+
+  <section class="panel" data-panel="r2">
+    <p class="muted">Four new test users and code auditors, after round 1's fixes. Serious and medium findings below. All are <b>in how you use it now</b> unless marked. All fixed and checked again.</p>
+
+    <div class="card finding">
+      <svg viewBox="0 0 300 190" role="img" aria-label="Undo flow: delete A, then add C, then undo. Before: C vanished. Now: A, B and C all kept.">
+        <rect x="5" y="10" width="80" height="34" rx="6" class="box"/><text x="45" y="31" text-anchor="middle">Delete A</text>
+        <path d="M85,27 L105,27" class="arrow" color="var(--muted)"/>
+        <rect x="105" y="10" width="80" height="34" rx="6" class="box"/><text x="145" y="31" text-anchor="middle">Add C</text>
+        <path d="M185,27 L205,27" class="arrow" color="var(--muted)"/>
+        <rect x="205" y="10" width="90" height="34" rx="6" class="box"/><text x="250" y="31" text-anchor="middle">Undo</text>
+        <rect x="5" y="70" width="290" height="44" rx="6" class="bad"/><text x="150" y="90" text-anchor="middle">Before: A back, but C gone</text><text x="150" y="106" text-anchor="middle">(your new scribble lost)</text>
+        <rect x="5" y="130" width="290" height="44" rx="6" class="good"/><text x="150" y="150" text-anchor="middle">Now: A, B and C</text><text x="150" y="166" text-anchor="middle">(undo only puts back what it removed)</text>
+      </svg>
+      <div>
+        <h3><span class="tag high">serious</span> Undo could erase newer work</h3>
+        <p>If you deleted a scribble, added another within 10 seconds, then pressed Undo, the new one vanished. It happened rarely, but it lost work silently. It had been there from the start, and the new Ctrl+Z shortcut made it easier to hit. <b>Fixed</b>, and checked by script.</p>
+      </div>
+    </div>
+
+    <div class="card finding">
+      <svg viewBox="0 0 300 190" role="img" aria-label="Name and fact flow: you write 'andrew' and 'oculus 2b at 21'. Before: the note said 'Anduril' and 'sold for 2b'. Now: 'Andrew (Anduril?)' and 'Oculus, 2b at 21'.">
+        <rect x="5" y="10" width="290" height="40" rx="6" class="box"/><text x="150" y="35" text-anchor="middle">You: "90b for andrew. oculus 2b at 21"</text>
+        <path d="M150,50 L150,66" class="arrow" color="var(--muted)"/>
+        <rect x="5" y="68" width="290" height="50" rx="6" class="bad"/><text x="150" y="89" text-anchor="middle">Before: "Anduril … Oculus sold for 2b"</text><text x="150" y="106" text-anchor="middle">(a guessed name and an added fact)</text>
+        <rect x="5" y="130" width="290" height="50" rx="6" class="good"/><text x="150" y="151" text-anchor="middle">Now: "Andrew (Anduril?) … Oculus, 2b at 21"</text><text x="150" y="168" text-anchor="middle">(your words; the guess is marked)</text>
+      </svg>
+      <div>
+        <h3><span class="tag high">serious</span> A swapped name and an added fact</h3>
+        <p>The AI replaced a name you wrote with the one it thought you meant, and added "sold", which you never wrote. These are small, but they're exactly what NoteSmith promises not to do. It happened in a few notes per session. <b>Fixed</b> and covered by the quality test.</p>
+        <h3 style="margin-top:12px"><span class="tag high">serious</span> Corrections lost or invented details</h3>
+        <p>Merging "actually it was 21" into the earlier note dropped "got fired", and once invented what you'd "first written". <b>Fixed.</b> Corrections now keep everything else, and the bracket names only what you really wrote.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3><span class="tag med">medium</span> The rest, each fixed and checked</h3>
+      <table>
+        <tr><th>What you'd have seen</th><th>Cost</th></tr>
+        <tr><td>"(re: …)" asides quoting the wrong moment, or paraphrasing</td><td>Misleading context. Now real quotes only, checked by code, and off by default</td></tr>
+        <tr><td>Notes made by older versions kept old-style guesses</td><td>Now rebuilt from your scribbles automatically</td></tr>
+        <tr><td>Keyboard: an extra Tab stop as the video played; focus lost after a delete</td><td>Keyboard friction</td></tr>
+        <tr><td>Settings left a stale error, or brought back "Fix API key" after you fixed it</td><td>Auto-forge stalled until you pressed Forge now</td></tr>
+        <tr><td>Toolbar labels clipped in a narrow panel</td><td>Looks unfinished</td></tr>
+        <tr><td>Phone: header overflowed; video covered the screen sideways <span class="tag low">a setup you don't use</span></td><td>Phone only</td></tr>
+      </table>
+    </div>
+
+    <details>
+      <summary>Low and declined findings (one line each)</summary>
+      <ul class="lows">
+        <li><span class="tag low">low</span> Delete and edit buttons now say which scribble; chip labels say "just before".</li>
+        <li><span class="tag low">low</span> CAPITALS are kept as emphasis; the faint text color now passes contrast.</li>
+        <li><span class="tag low">low</span> Jumping to a scribble's moment now starts 5 seconds early, because you write just after hearing something.</li>
+        <li><span class="tag low">low</span> Ctrl+Z undoes a delete; the Undo toast stays for 10 seconds.</li>
+        <li><span class="tag ok">declined</span> YouTube's player adds a few Tab stops. Removing them would take away keyboard play and pause.</li>
+        <li><span class="tag ok">declined</span> Settings dialog "lets focus escape": checked, it only reaches the browser's own toolbar, which is normal.</li>
+        <li><span class="tag ok">declined</span> Export includes your raw scribbles below the notes: testers liked it, and it's labelled.</li>
+        <li><span class="tag ok">declined</span> The video goes black for about 5 seconds after resizing across the phone layout, then recovers.</li>
+        <li><span class="tag low">taste</span> Icon look, checkbox alignment, a bigger transcript, "jump to time". Yours to judge.</li>
+      </ul>
+    </details>
+  </section>
+
+  <h2>Words on this page</h2>
+  <dl class="gloss">
+    <dt>Test user</dt><dd>An AI agent given a persona and a task, using the real app in a browser without seeing the code.</dd>
+    <dt>Code auditor</dt><dd>An AI from a different company (OpenAI's Codex) that reads the fixes and looks for what they broke.</dd>
+    <dt>Disposition auditor</dt><dd>An AI that checks whether I rated and dismissed findings fairly. It overruled me five times.</dd>
+    <dt>Quality test (eval)</dt><dd>A fixed set of messy scribbles on the Palmer Luckey video, re-run after every prompt change and judged by a second AI.</dd>
+    <dt>Forge</dt><dd>NoteSmith refining your new or edited scribbles into notes.</dd>
+  </dl>
+
+  <p class="muted" id="final-check">Final code check: it confirmed the serious undo bug is fixed and found only rare edge cases (undo during an update, settings changed mid-update). Those are fixed and checked by tests and scripts, but no further auditor has reviewed them. One weak spot remains: when a correction is merged into an earlier note, the wording occasionally loses a small stray phrase. That's worth watching in your own use.</p>
+</main>
+<script>
+  for (const tab of document.querySelectorAll("[data-tab]")) {
+    tab.addEventListener("click", () => {
+      for (const t of document.querySelectorAll("[data-tab]")) t.setAttribute("aria-selected", String(t === tab));
+      for (const p of document.querySelectorAll("[data-panel]")) p.hidden = p.dataset.panel !== tab.dataset.tab;
+    });
+  }
+</script>
+</body>
+</html>
